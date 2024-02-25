@@ -28,11 +28,6 @@
         text-align: center;
       }
 
-      .canvas-container button {
-        display:block;
-        width: 300px;
-      }
-    
     </style>
   </head>
   <body>
@@ -56,7 +51,7 @@
     <div class="markdown-body">
       <div class="canvas-container">
         <input type="button" id="romInputButton" onclick="document.getElementById('romInput').click()" value="Select ROM"/>
-        <input id="romInput" type="file" style="display:none"/>
+        <input id="romInput" type="file" accept=".gb,.gbc" style="display:none"/>
 
         <canvas id="canvas" height="0" width="0">
       </div>

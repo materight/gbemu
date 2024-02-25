@@ -188,7 +188,7 @@ impl PPU {
                     }
                 }
                 // Draw window
-                if self.lcdc.window_enable && self.wy <= self.ly {
+                if self.lcdc.window_enable && self.wy <= self.ly && (self.wly as usize + self.wy as usize) < LCDH {
                     let wx = self.wx as i16 - 7 ;
                     for lx in 0..(LCDW as u8 / 8 + 1) {
                         let tile_nr = self.rtilemap(lx, self.wly / 8, self.lcdc.window_mode);

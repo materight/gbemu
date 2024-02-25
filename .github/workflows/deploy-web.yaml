@@ -46,6 +46,7 @@ jobs:
           cp -r ./web/pkg ./public
           cp ./web/index.html ./public
           cp ./web/favicon.ico ./public
+          rm ./public/pkg/.gitignore
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3

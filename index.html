@@ -30,7 +30,7 @@
 
     </style>
   </head>
-  <body>
+  <body class="markdown-body">
     <script type="module">
       import init, { start } from './pkg/web.js';
       await init();
@@ -48,7 +48,7 @@
           }
       });
     </script>
-    <div class="markdown-body">
+    <div>
       <div class="canvas-container">
         <input type="button" id="romInputButton" onclick="document.getElementById('romInput').click()" value="Select ROM"/>
         <input id="romInput" type="file" accept=".gb,.gbc" style="display:none"/>

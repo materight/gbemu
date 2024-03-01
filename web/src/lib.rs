@@ -10,6 +10,7 @@ const SCALE: usize = 4;
 
 struct EmuState {
     speed: u32,
+    switch_palette: Option<bool>,
     joypad: Joypad,
 }
 
@@ -18,6 +19,7 @@ fn request_animation_frame(f: &Closure<dyn FnMut()>) {
 }
 
 fn key_status_change(state: &mut EmuState, event: &KeyboardEvent, is_down: bool) {
+    event.prevent_default();
     match event.code().as_str() {
         "KeyA" => state.joypad.a = is_down,
         "KeyS" => state.joypad.b = is_down,
@@ -27,19 +29,22 @@ fn key_status_change(state: &mut EmuState, event: &KeyboardEvent, is_down: bool)
         "ArrowRight" => state.joypad.right = is_down,
         "Enter" => state.joypad.start = is_down,
         "Backspace" => state.joypad.select = is_down,
-        "Equal" if !is_down => state.speed = (state.speed * 2).clamp(1, 32),
-        "Minus" if !is_down => state.speed = (state.speed / 2).clamp(1, 32),
+        "Equal" if !is_down => state.speed = (state.speed * 2).clamp(1, 64),
+        "Minus" if !is_down => state.speed = (state.speed / 2).clamp(1, 64),
+        "Tab" if !is_down && !event.shift_key() => state.switch_palette = Some(true),
+        "Tab" if !is_down && event.shift_key() => state.switch_palette = Some(false),
         _ => (),
     };
 }
 
+
 #[wasm_bindgen]
 pub fn start(rom: &[u8]) {
     // Init emulator
-    let mut emulator = GBEmu::new(&rom);
+    let mut emulator = GBEmu::new(&rom, false);
     let savekey = format!("{} - {}", emulator.rom_checksum(), emulator.rom_title());
     let (lcdw, lcdh) = (lcd::LCDW * SCALE, lcd::LCDH * SCALE);
-    let state = Rc::new(RefCell::new(EmuState { speed: 1, joypad: Joypad::default() }));
+    let state = Rc::new(RefCell::new(EmuState { speed: 1, switch_palette: None, joypad: Joypad::default() }));
 
     // Init window and canvas
     panic::set_hook(Box::new(console_error_panic_hook::hook));
@@ -73,13 +78,21 @@ pub fn start(rom: &[u8]) {
     *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
         // Wait for next frame to be available
         let mut frame_buffer;
+        let mut state = state.borrow_mut();
         loop {
+            // Update palette
+            if let Some(switch) = state.switch_palette.take() {
+                emulator.switch_palette(switch);
+            }
+
             // Run emulator steps until a frame is available to be drawn
-            frame_buffer = emulator.step(&state.borrow().joypad);
-            if !frame_buffer.is_none() { 
+            frame_buffer = emulator.step(&state.joypad);
+
+            // Return available frame
+            if !frame_buffer.is_none() {
                 frame_count += 1;
                 // Skip drawn frames to match the requested speed
-                if frame_count % state.borrow().speed == 0 { break } 
+                if frame_count % state.speed == 0 { break } 
             }
         }
 

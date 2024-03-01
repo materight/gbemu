@@ -35,12 +35,12 @@ impl Clock {
         }
     }
 
-    pub fn update(&mut self, elapsed_ticks: u8) -> u8 {
+    pub fn step(&mut self, elapsed_ticks: u8) -> u8 {
         let mut interrupts = 0;
         let tima_enabled = self.tac & 0x04 != 0;
         let tima_bit = match self.tac & 0x03 {
             0x00 => 1024 / 2, 0x01 => 16 / 2, 0x02 => 64 / 2, 0x03 => 256 / 2,
-            v => panic!("TAC {:#06x} unsupported", v),
+            v => panic!("TAC {:#04x} unsupported", v),
         };
         for _ in 0..elapsed_ticks {
             self.sysclock = self.sysclock.wrapping_add(1);

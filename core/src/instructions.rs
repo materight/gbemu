@@ -133,13 +133,13 @@ macro_rules! add_cycles {
 
 macro_rules! set_op {
     ($op:expr, $code:expr, $inst:ident, $extra_bytes:expr, $cycles:expr) => {
-        assert!(matches!($op[$code].0, Op::INVALID) || matches!($op[$code].0, Op::LD_R8_R8(R8::HL, R8::HL)), "Op at {:#06x} already set to {:?}", $code, $op[$code].0);
+        assert!(matches!($op[$code].0, Op::INVALID) || matches!($op[$code].0, Op::LD_R8_R8(R8::HL, R8::HL)), "Op at {:#04x} already set to {:?}", $code, $op[$code].0);
         $op[$code] = (Op::$inst, $extra_bytes, $cycles);
     };
     ($op:expr, $code:expr, $inst:ident, $extra_bytes:expr, $cycles:expr, $reg:expr, $shift:expr) => {
         for (i, reg) in $reg.iter().enumerate() {
             let (code, inst) = (i << $shift | $code, Op::$inst(*reg));
-            assert!(matches!($op[code].0, Op::INVALID), "Op at {:#06x} already set to {:?}", code, $op[code].0);
+            assert!(matches!($op[code].0, Op::INVALID), "Op at {:#04x} already set to {:?}", code, $op[code].0);
             $op[code] = (inst, $extra_bytes, $cycles + add_cycles!(inst, reg));
         }
     };
@@ -147,7 +147,7 @@ macro_rules! set_op {
         for (i, rega) in $rega.iter().enumerate() {
             for (j, regb) in $regb.iter().enumerate() {
                 let (code, inst) = (i << $shifta | j << $shiftb | $code,  Op::$inst(*rega, *regb));
-                assert!(matches!($op[code].0, Op::INVALID), "Op at {:#06x} already set to {:?}", code, $op[code].0);
+                assert!(matches!($op[code].0, Op::INVALID), "Op at {:#04x} already set to {:?}", code, $op[code].0);
                 $op[code] = (inst, $extra_bytes, $cycles + add_cycles!(inst, rega) + add_cycles!(inst, regb));
             }
         }
@@ -189,7 +189,7 @@ pub fn load_opmaps() -> ([Instruction; OPMAP_SIZE], [Instruction; OPMAP_SIZE]) {
     set_op!(op, 0x18, JR_I8, 1, 3);
     set_op!(op, 0x20, JR_CC_I8, 1, 2, ADDR_CC, 3);
 
-    set_op!(op, 0x10, STOP, 0, 0);
+    set_op!(op, 0x10, STOP, 1, 0);
 
     // Block 1
     set_op!(op, 0x40, LD_R8_R8, 0, 1, ADDR_R8, 3, ADDR_R8, 0);

@@ -8,19 +8,19 @@ pub struct GBEmu {
 }
 
 impl GBEmu {
-    pub fn new(rom: &[u8]) -> Self {
-        Self { cpu: CPU::new(rom) }
+    pub fn new(rom: &[u8], force_dmg: bool) -> Self {
+        Self { cpu: CPU::new(rom, force_dmg) }
     }
 
     pub fn step(&mut self, joypad: &Joypad) -> Option<&LCDBuffer> {
         self.cpu.mmu.set_joypad(joypad);
-        let elapsed_ticks = self.cpu.fetch_execute();
-        let frame_buffer = self.cpu.mmu.ppu_execute(elapsed_ticks);
+        let elapsed_ticks = self.cpu.step();
+        let frame_buffer = self.cpu.mmu.step(elapsed_ticks);
         frame_buffer
     }
 
-    pub fn set_palette(&mut self, palette_idx: usize) {
-        self.cpu.mmu.ppu.lcd.set_palette(palette_idx);
+    pub fn switch_palette(&mut self, next: bool) {
+        self.cpu.mmu.ppu.lcd.switch_palette(next);
     }
 
     pub fn rom_title(&self) -> String {

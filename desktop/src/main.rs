@@ -1,19 +1,34 @@
 use std::{fs, path::Path};
 use std::time::Duration;
 use clap::Parser;
-use minifb::{clamp, Key, KeyRepeat, Menu, Scale, Window, WindowOptions};
+use gb_core::debug;
+use minifb::{clamp, Key, KeyRepeat, Scale, Window, WindowOptions};
 
-use gb_core::{GBEmu, Joypad, lcd, palette};
+use gb_core::{GBEmu, Joypad, lcd};
 
 
 #[derive(Parser)]
 #[command(about = "A simple Gameboy emulator written in Rust")]
 struct Args {
+    /// ROM path (.gb/.gbc)
     #[arg(short, long)]
     file: String,
 
+    /// Scale of the diplay
     #[arg(short, long, default_value_t = 4)]
     scale: u8,
+
+    /// Force games to run in DMG (Non-Color GB)
+    #[arg(long, action)]
+    force_dmg: bool,
+
+    /// Display loaded tiles
+    #[arg(long, action)]
+    tiles: bool,
+
+    /// Print OP codes and registers
+    #[arg(long, action)]
+    debug: bool,
 }
 
 fn set_emulation_speed(window: &mut Window, speed: f32) {
@@ -23,38 +38,40 @@ fn set_emulation_speed(window: &mut Window, speed: f32) {
 
 fn main() {
     let args = Args::parse();
+    debug::set_enabled(args.debug);
     let filepath = Path::new(&args.file);
     let rom = fs::read(filepath).expect("ROM not found");
-    let mut emulator = GBEmu::new(&rom);
+    let mut emulator = GBEmu::new(&rom, args.force_dmg);
+    let scale = match args.scale {
+        1 => Scale::X1, 2 => Scale::X2, 4 => Scale::X4, 8 => Scale::X8,
+        _ => panic!("Unsupported scale: X{}", args.scale)
+    };
 
     // Load savefile if present
-    let savepath = filepath.with_file_name(format!(".{}.sav", filepath.file_stem().unwrap().to_string_lossy()));
+    let savepath = filepath.with_file_name(format!(".{}.sav", filepath.file_name().unwrap().to_string_lossy()));
     match fs::read(savepath.clone()) {
         Ok(savefile) => emulator.load_save(&savefile),
         Err(_) => println!("Could not find save file")
     }
 
+    // Setup tilemap window
+    let mut tile_window = if args.tiles {
+        Some(Window::new(
+            "TILES",
+            debug::TILEW, debug::TILEH,
+            WindowOptions { scale: Scale::X2, ..Default::default() },
+        ).unwrap())
+    } else { None };
+
     // Setup output window
-    let scale = match args.scale {
-         1 => Scale::X1, 2 => Scale::X2, 4 => Scale::X4, 8 => Scale::X8, _ => panic!("Unsupported scale: X{}", args.scale)
-    };
-    let mut speed = 8.0;
+    let mut speed = 1.0;
     let mut paused = false;
     let mut window = Window::new(
         emulator.rom_title().as_str(),
         lcd::LCDW, lcd::LCDH,
-        WindowOptions {scale: scale, topmost: false, ..Default::default()},
+        WindowOptions { scale: scale, topmost: false, ..Default::default() },
     ).unwrap();
     set_emulation_speed(&mut window, speed);
-
-    // Setup window menu with palette selection
-    let mut menu = Menu::new("Settings").unwrap();
-    let mut sub_palette = Menu::new("Palette").unwrap();
-    for (i, (palette_name, _)) in palette::PALETTES.iter().enumerate() {
-        sub_palette.add_item(palette_name, i).build();
-    }
-    menu.add_sub_menu("Palette", &sub_palette);
-    window.add_menu(&menu);
 
     // Start emulation loop
     let mut frame_count: u64 = 0;
@@ -87,15 +104,16 @@ fn main() {
             // Write frame to buffer
             window.update_with_buffer(frame_buffer, lcd::LCDW, lcd::LCDH).unwrap();
 
-            // Update palette
-            if let Some(menu_id) = window.is_menu_pressed() {
-                emulator.set_palette(menu_id);
+            // Write tiles
+            if let Some(wnd) = &mut tile_window {
+                (*wnd).update_with_buffer(&debug::draw_tilemap(&emulator.cpu.mmu.ppu), debug::TILEW, debug::TILEH).unwrap();
             }
 
             // Handle shortcuts
             if window.is_key_pressed(Key::Space, KeyRepeat::No) { paused = true }
             if window.is_key_released(Key::Equal) { speed *= 2.0 }
             if window.is_key_released(Key::Minus) { speed /= 2.0 }
+            if window.is_key_released(Key::Tab) { emulator.switch_palette(!window.is_key_down(Key::LeftShift)) }
             speed = clamp(1.0, speed, 256.0);
             set_emulation_speed(&mut window, speed);
 

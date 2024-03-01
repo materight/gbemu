@@ -1,10 +1,10 @@
 use std::collections::VecDeque;
 
-use crate::debug::{DEBUG, print_cpu_status};
 use crate::instructions::{Instruction, Op, OPMAP_SIZE, load_opmaps};
 use crate::registers::{Registers, CC, R16, R8};
 use crate::utils::{Get, Set};
 use crate::mmu::MMU;
+use crate::debug;
 
 // Interrupts  as (bit masks, address), in order of priority
 pub const INT_VBLANK: (u8, u16) = (0x01, 0x0040);
@@ -31,11 +31,11 @@ pub struct CPU {
 
 
 impl CPU {
-    pub fn new(rom: &[u8]) -> Self {
+    pub fn new(rom: &[u8], force_dmg: bool) -> Self {
         let (opmap, opmap_cb) = load_opmaps();
         Self {
             reg: Registers::new(),
-            mmu: MMU::new(rom),
+            mmu: MMU::new(rom, force_dmg),
             ime: false,
             halt: false,
             opmap,
@@ -51,7 +51,7 @@ impl CPU {
         val
     }
 
-    pub fn fetch_execute(&mut self) -> u8 {
+    pub fn step(&mut self) -> u8 {
         let mut opcycles = 0;
 
         // Handle interrupts, if any
@@ -78,11 +78,11 @@ impl CPU {
             let xword: Option<u16> = if extra_bytes > 1 {Some(u16::from_le_bytes([xbyte.unwrap(), self.fetch()]))} else {None};
 
             // Debug messages
-            if DEBUG && self.mmu.mbc.boot_rom_unmounted {
-                print_cpu_status(&self, opcode_byte, opcode, extra_bytes, xbyte, xword);
+            if debug::enabled() && self.mmu.mbc.boot_rom_unmounted {
+                debug::print_cpu_status(&self, opcode_byte, opcode, extra_bytes, xbyte, xword);
                 self.opcode_history.push_front(opcode);
                 if self.opcode_history.len() > 8 { self.opcode_history.pop_back(); }
-                if [Op::NOP, Op::JR_CC_I8(CC::NZ)].iter().rev().enumerate().all(|(i, item)| self.opcode_history.get(i).unwrap_or(&Op::INVALID) == item) {
+                if [Op::CP_A_I8, Op::JR_CC_I8(CC::NZ), Op::LDH_A_I8, Op::CP_A_I8].iter().rev().enumerate().all(|(i, item)| self.opcode_history.get(i).unwrap_or(&Op::INVALID) == item) {
                     println!("Found target trace at {:#06x}", self.reg.pc - 1);
                 }
             }
@@ -154,7 +154,7 @@ impl CPU {
                 Op::CALL_CC_I16(cc) => if self.r(cc) { self.call(xword.unwrap()); opcycles += 3; },
                 Op::RET_CC(cc) =>      if self.r(cc) { self.pop(R16::PC); opcycles += 3; },
 
-                Op::STOP => { panic!("STOP not implemented") },
+                Op::STOP => (),
                 Op::HALT => self.halt = true,
                 Op::DI =>   self.ime = false,
                 Op::EI =>   (),
@@ -177,10 +177,9 @@ impl CPU {
             self.prev_op = opcode;
         }
 
-        // Update internal clock
-        let ticks = opcycles * 4;
-        self.mmu.IF |= self.mmu.clock.update(ticks);
-        ticks
+        // Return adjusted T-cycles based on the CPU speep mode
+        let tcycles_multiplier = if self.mmu.double_speed { 2 } else { 4 };
+        opcycles * tcycles_multiplier
     }
 
     fn handle_interrupts(&mut self) -> u8 {
@@ -189,7 +188,7 @@ impl CPU {
             if self.mmu.IE & int_flag != 0 && self.mmu.IF & int_flag != 0 {
                 self.halt = false;
                 if self.ime {
-                    if DEBUG { println!("INT {:#04x}", int_addr); }
+                    if debug::enabled() { println!("INT {:#04x}", int_addr); }
                     self.ime = false;
                     self.mmu.IF &= !int_flag;
                     self.call(int_addr);

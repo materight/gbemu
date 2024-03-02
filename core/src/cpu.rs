@@ -51,7 +51,7 @@ impl CPU {
         val
     }
 
-    pub fn step(&mut self) -> u8 {
+    pub fn step(&mut self) -> u16 {
         let mut opcycles = 0;
 
         // Handle interrupts, if any
@@ -179,7 +179,7 @@ impl CPU {
 
         // Return adjusted T-cycles based on the CPU speep mode
         let tcycles_multiplier = if self.mmu.double_speed { 2 } else { 4 };
-        opcycles * tcycles_multiplier
+        opcycles as u16 * tcycles_multiplier
     }
 
     fn handle_interrupts(&mut self) -> u8 {

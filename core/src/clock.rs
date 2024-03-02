@@ -35,7 +35,7 @@ impl Clock {
         }
     }
 
-    pub fn step(&mut self, elapsed_ticks: u8) -> u8 {
+    pub fn step(&mut self, elapsed_ticks: u16) -> u8 {
         let mut interrupts = 0;
         let tima_enabled = self.tac & 0x04 != 0;
         let tima_bit = match self.tac & 0x03 {

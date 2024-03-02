@@ -42,9 +42,10 @@ fn main() {
     let filepath = Path::new(&args.file);
     let rom = fs::read(filepath).expect("ROM not found");
     let mut emulator = GBEmu::new(&rom, args.force_dmg);
+    let topmost = false;
     let scale = match args.scale {
         1 => Scale::X1, 2 => Scale::X2, 4 => Scale::X4, 8 => Scale::X8,
-        _ => panic!("Unsupported scale: X{}", args.scale)
+        _ => panic!("Unsupported scale: x{}", args.scale)
     };
 
     // Load savefile if present
@@ -59,7 +60,7 @@ fn main() {
         Some(Window::new(
             "TILES",
             debug::TILEW, debug::TILEH,
-            WindowOptions { scale: Scale::X2, ..Default::default() },
+            WindowOptions { scale: Scale::X2, topmost: topmost, ..Default::default() },
         ).unwrap())
     } else { None };
 
@@ -69,7 +70,7 @@ fn main() {
     let mut window = Window::new(
         emulator.rom_title().as_str(),
         lcd::LCDW, lcd::LCDH,
-        WindowOptions { scale: scale, topmost: false, ..Default::default() },
+        WindowOptions { scale: scale, topmost: topmost, ..Default::default() },
     ).unwrap();
     set_emulation_speed(&mut window, speed);
 

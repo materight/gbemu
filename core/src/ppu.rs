@@ -27,14 +27,14 @@ impl PPUMode {
 
 pub struct PPU {
     pub lcd: LCD,
-    vram: [u8; VRAM_SIZE],
+    pub vram: [u8; VRAM_SIZE],
     oam: [u8; OAM_SIZE],
 
     lcdc: LCDControl,   // LCD control register
     lcdstat: LCDStatus, // LCD status register
     scy: u8,  // Background Y coord
     scx: u8,  // Background X coord
-    ly: u8,   // LCD Y scanline coord
+    pub ly: u8,   // LCD Y scanline coord
     lyc: u8,  // LCD Y scanline coord comparison
     bgp: u8,  // Background/window palette
     obp0: u8, // Object palette
@@ -72,7 +72,7 @@ impl PPU {
         }
     }
 
-    fn vram_addr(addr: u16, vbank: bool) -> usize {
+    pub fn vram_addr(addr: u16, vbank: bool) -> usize {
         addr as usize - 0x8000 + (vbank as usize * 0x2000)
     }
 
@@ -151,7 +151,7 @@ impl PPU {
         let mut row_data = 0;
         for i in 0..8 {
             row_data |= ((row_l >> i) & 0x01) << i*2;
-            row_data |= ((row_h >> i) & 0x01)<< i*2 + 1;
+            row_data |= ((row_h >> i) & 0x01) << i*2 + 1;
         }
         row_data
     }
@@ -186,7 +186,7 @@ impl PPU {
         PPUMode(self.lcdstat.ppu_mode_1, self.lcdstat.ppu_mode_0)
     }
 
-    fn update_mode(&mut self) -> u8 {
+    fn update_mode(&mut self) -> (u8, Option<PPUMode>) {
         let current_mode: PPUMode = match self.scanline_ticks {
             _ if self.ly >= LCDH as u8 => PPUMode::VBLANK,
             0..=80 => PPUMode::OAM,
@@ -195,18 +195,19 @@ impl PPU {
         };
         if self.mode() != current_mode {
             (self.lcdstat.ppu_mode_1, self.lcdstat.ppu_mode_0) = (current_mode.0, current_mode.1); // (0, 1) since bits are little endian
-            match current_mode {
+            let interrupts = match current_mode {
                 PPUMode::HBLANK if self.lcdstat.mode0_int => INT_STAT.0,
                 PPUMode::OAM if self.lcdstat.mode2_int => INT_STAT.0,
                 PPUMode::VBLANK => INT_VBLANK.0 | if self.lcdstat.mode1_int { INT_STAT.0 } else { 0 },
                 _ => 0
-            }
+            };
+            (interrupts, Some(current_mode))
         } else {
-            0
+            (0, None)
         }
     }
 
-    pub fn step(&mut self, elapsed_ticks: u8) -> (Option<&LCDBuffer>, u8) {
+    pub fn step(&mut self, elapsed_ticks: u16) -> (Option<&LCDBuffer>, u8) {
         // Wait until the LCD is enabled to start PPU and reset PPU status.
         if !self.lcdc.lcd_enable {
             self.set_ly(0);
@@ -216,103 +217,104 @@ impl PPU {
         }
         let mut interrupts: u8 = 0;
         // Set current mode and trigger interrupt if needed.
-        self.scanline_ticks += elapsed_ticks as u16;
-        interrupts |= self.update_mode();
-        // Draw single scanline
-        if self.scanline_ticks > SCANLINE_TICKS {
-            if self.ly < LCDH as u8 {
-                // Draw background
-                if self.lcdc.bg_enable {
-                    for lx in 0..(LCDW as u8 / 8 + 1) {
-                        let tilemap_x = ((self.scx / 8) + lx) % 32;
-                        let tilemap_y = self.scy.wrapping_add(self.ly);
-                        let tile_nr = self.rtilemap(tilemap_x, tilemap_y / 8, self.lcdc.bg_mode, false);
-                        let flags = BGFlags::from(self.rtilemap(tilemap_x, tilemap_y / 8, self.lcdc.bg_mode, true));
-                        let tile_row = if !flags.y_flip { tilemap_y % 8 } else { 7 - tilemap_y % 8 };
-                        let tile = self.rtile(tile_nr, tile_row, false, flags.bank);
-                        for i in 0..8 {
-                            let x = (lx * 8) as i16 - (self.scx % 8) as i16 + i as i16;
-                            if x < 0 || x >= LCDW as i16 { continue }
-                            let px = PPU::rpx(tile, i, flags.x_flip);
-                            if self.cgb_mode {
-                                let palette = PPU::rpalette(&self.bgpalette, flags.cgbp2, flags.cgbp1, flags.cgbp0);
-                                self.lcd.w_cgb(x as u8, self.ly, px, palette);
-                            } else {
-                                self.lcd.w_dmg(x as u8, self.ly, px, self.bgp);
-                            }
-                        }
-                    }
-                }
-                // Draw window
-                let wx = self.wx as i16 - 7;
-                if self.lcdc.window_enable && (self.cgb_mode || self.lcdc.bg_enable) && self.wy <= self.ly && wx < LCDH as i16 {
-                    for lx in 0..(LCDW as u8 / 8 + 1) {
-                        let tile_nr = self.rtilemap(lx, self.wly / 8, self.lcdc.window_mode, false);
-                        let flags = BGFlags::from(self.rtilemap(lx, self.wly / 8, self.lcdc.window_mode, true));
-                        let tile_row = if !flags.y_flip { self.wly % 8 } else { 7 - self.wly % 8 };
-                        let tile = self.rtile(tile_nr, tile_row, false, flags.bank);
-                        for i in 0..8 {
-                            let x = (lx * 8) as i16 + wx + i as i16;
-                            if x < 0 || x >= LCDW as i16 { continue }
-                            let px = PPU::rpx(tile, i, flags.x_flip);
-                            if self.cgb_mode {
-                                let palette = PPU::rpalette(&self.bgpalette, flags.cgbp2, flags.cgbp1, flags.cgbp0);
-                                self.lcd.w_cgb(x as u8, self.ly, px, palette);
-                            } else {
-                                self.lcd.w_dmg(x as u8, self.ly, px, self.bgp);
-                            }
-                        }
-                    }
-                    self.wly += 1;
-                }
-                // Draw OBJs
-                if self.lcdc.obj_enable {
-                    let obj_h = if self.lcdc.obj_size { 16 } else { 8 };
-                    // Select firt 10 objects to be drawn and sort them by priority
-                    let mut selected_objs = Vec::with_capacity(10);
-                    for i in 0..40 {
-                        let obj_y = self.r(0xFE00 + i * 4) as i16 - 16;
-                        if obj_y <= (self.ly as i16) && (self.ly as i16) < obj_y + obj_h && obj_y < LCDH as i16 {
-                            let obj_x = self.r(0xFE00 + i * 4 + 1) as i16 - 8;
-                            selected_objs.push((i, obj_x, obj_y));
-                            if selected_objs.len() >= 10 { break }
-                        }
-                    }
-                    // Sort by priority (higher priorities are drawn later so they overwrite lower priorities)
-                    if self.cgb_mode {
-                        selected_objs.sort_by(|(ai, _, _), (bi, _, _)| ai.cmp(&bi).reverse());
-                    } else {
-                        selected_objs.sort_by(|(ai, ax, _), (bi, bx, _)| ax.cmp(&bx).reverse().then(ai.cmp(&bi).reverse()));
-                    }
-                    // Draw selected objects
-                    for (i, obj_x, obj_y) in selected_objs {
-                        let tile_nr = self.r(0xFE00 + i * 4 + 2) & if obj_h == 16 { 0xFE } else { 0xFF };  // Last bit is ignored in 8x16 mode
-                        let flags = OBJFlags::from(self.r(0xFE00 + i * 4 + 3));
-                        let tile_row = if !flags.y_flip { self.ly as i16 - obj_y } else { (obj_h - 1) - (self.ly as i16 - obj_y) };
-                        let tile = self.rtile(tile_nr, tile_row as u8, true, flags.bank);
-                        // Write pixel by pixel to buffer
-                        for i in 0..8 {
-                            let x = obj_x + i as i16;
-                            if x < 0 || x >= LCDW as i16 { continue }
-                            let px = PPU::rpx(tile, i, flags.x_flip);
-                            // Skip pixel if transparent or if piority is set to BG and BG is not transparent
-                            let bg_has_priority = self.lcd.r(x as u8, self.ly) != 0 && if self.cgb_mode {
-                                flags.bg_priority && self.lcdc.bg_enable // (!flags.bg_priority || !bg_flags.bg_priority)
-                            } else {
-                                flags.bg_priority
-                            };
-                            if px == 0 || bg_has_priority { continue }
-                            // Draw
-                            if self.cgb_mode {
-                                let palette = PPU::rpalette(&self.obpalette, flags.cgbp2, flags.cgbp1, flags.cgbp0);
-                                self.lcd.w_cgb(x as u8, self.ly, px, palette);
-                            } else {
-                                self.lcd.w_dmg(x as u8, self.ly, px, if flags.obp {self.obp1} else {self.obp0});
-                            }
+        self.scanline_ticks += elapsed_ticks;
+        let (mode_interrupts, new_mode) = self.update_mode();
+        interrupts |= mode_interrupts;
+        // Draw single scanline when the PPU enters HBlank
+        if new_mode == Some(PPUMode::HBLANK) {
+            // Draw background
+            if self.lcdc.bg_enable {
+                for lx in 0..(LCDW as u8 / 8 + 1) {
+                    let tilemap_x = ((self.scx / 8) + lx) % 32;
+                    let tilemap_y = self.scy.wrapping_add(self.ly);
+                    let tile_nr = self.rtilemap(tilemap_x, tilemap_y / 8, self.lcdc.bg_mode, false);
+                    let flags = BGFlags::from(self.rtilemap(tilemap_x, tilemap_y / 8, self.lcdc.bg_mode, true));
+                    let tile_row = if !flags.y_flip { tilemap_y % 8 } else { 7 - tilemap_y % 8 };
+                    let tile = self.rtile(tile_nr, tile_row, false, flags.bank);
+                    for i in 0..8 {
+                        let x = (lx * 8) as i16 - (self.scx % 8) as i16 + i as i16;
+                        if x < 0 || x >= LCDW as i16 { continue }
+                        let px = PPU::rpx(tile, i, flags.x_flip);
+                        if self.cgb_mode {
+                            let palette = PPU::rpalette(&self.bgpalette, flags.cgbp2, flags.cgbp1, flags.cgbp0);
+                            self.lcd.w_cgb(x as u8, self.ly, px, palette);
+                        } else {
+                            self.lcd.w_dmg(x as u8, self.ly, px, self.bgp);
                         }
                     }
                 }
             }
+            // Draw window
+            let wx = self.wx as i16 - 7;
+            if self.lcdc.window_enable && (self.cgb_mode || self.lcdc.bg_enable) && self.wy <= self.ly && wx < LCDH as i16 {
+                for lx in 0..(LCDW as u8 / 8 + 1) {
+                    let tile_nr = self.rtilemap(lx, self.wly / 8, self.lcdc.window_mode, false);
+                    let flags = BGFlags::from(self.rtilemap(lx, self.wly / 8, self.lcdc.window_mode, true));
+                    let tile_row = if !flags.y_flip { self.wly % 8 } else { 7 - self.wly % 8 };
+                    let tile = self.rtile(tile_nr, tile_row, false, flags.bank);
+                    for i in 0..8 {
+                        let x = (lx * 8) as i16 + wx + i as i16;
+                        if x < 0 || x >= LCDW as i16 { continue }
+                        let px = PPU::rpx(tile, i, flags.x_flip);
+                        if self.cgb_mode {
+                            let palette = PPU::rpalette(&self.bgpalette, flags.cgbp2, flags.cgbp1, flags.cgbp0);
+                            self.lcd.w_cgb(x as u8, self.ly, px, palette);
+                        } else {
+                            self.lcd.w_dmg(x as u8, self.ly, px, self.bgp);
+                        }
+                    }
+                }
+                self.wly += 1;
+            }
+            // Draw OBJs
+            if self.lcdc.obj_enable {
+                let obj_h = if self.lcdc.obj_size { 16 } else { 8 };
+                // Select firt 10 objects to be drawn and sort them by priority
+                let mut selected_objs = Vec::with_capacity(10);
+                for i in 0..40 {
+                    let obj_y = self.r(0xFE00 + i * 4) as i16 - 16;
+                    if obj_y <= (self.ly as i16) && (self.ly as i16) < obj_y + obj_h && obj_y < LCDH as i16 {
+                        let obj_x = self.r(0xFE00 + i * 4 + 1) as i16 - 8;
+                        selected_objs.push((i, obj_x, obj_y));
+                        if selected_objs.len() >= 10 { break }
+                    }
+                }
+                // Sort by priority (higher priorities are drawn later so they overwrite lower priorities)
+                if self.cgb_mode {
+                    selected_objs.sort_by(|(ai, _, _), (bi, _, _)| ai.cmp(&bi).reverse());
+                } else {
+                    selected_objs.sort_by(|(ai, ax, _), (bi, bx, _)| ax.cmp(&bx).reverse().then(ai.cmp(&bi).reverse()));
+                }
+                // Draw selected objects
+                for (i, obj_x, obj_y) in selected_objs {
+                    let tile_nr = self.r(0xFE00 + i * 4 + 2) & if obj_h == 16 { 0xFE } else { 0xFF };  // Last bit is ignored in 8x16 mode
+                    let flags = OBJFlags::from(self.r(0xFE00 + i * 4 + 3));
+                    let tile_row = if !flags.y_flip { self.ly as i16 - obj_y } else { (obj_h - 1) - (self.ly as i16 - obj_y) };
+                    let tile = self.rtile(tile_nr, tile_row as u8, true, flags.bank);
+                    // Write pixel by pixel to buffer
+                    for i in 0..8 {
+                        let x = obj_x + i as i16;
+                        if x < 0 || x >= LCDW as i16 { continue }
+                        let px = PPU::rpx(tile, i, flags.x_flip);
+                        // Skip pixel if transparent or if piority is set to BG and BG is not transparent
+                        let bg_has_priority = self.lcd.r(x as u8, self.ly) != 0 && if self.cgb_mode {
+                            flags.bg_priority && self.lcdc.bg_enable // (!flags.bg_priority || !bg_flags.bg_priority)
+                        } else {
+                            flags.bg_priority
+                        };
+                        if px == 0 || bg_has_priority { continue }
+                        // Draw
+                        if self.cgb_mode {
+                            let palette = PPU::rpalette(&self.obpalette, flags.cgbp2, flags.cgbp1, flags.cgbp0);
+                            self.lcd.w_cgb(x as u8, self.ly, px, palette);
+                        } else {
+                            self.lcd.w_dmg(x as u8, self.ly, px, if flags.obp {self.obp1} else {self.obp0});
+                        }
+                    }
+                }
+            }
+        } else if self.scanline_ticks > SCANLINE_TICKS {
+            // Go to new line when a scanline is done
             self.scanline_ticks %= SCANLINE_TICKS;
             interrupts |= self.set_ly(self.ly + 1);
         }

@@ -8,8 +8,8 @@ use crate::utils::Get;
 
 static mut DEBUG_ENABLED: bool = false;
 
-pub const TILE_NCOLS: usize = 16;
-pub const TILE_NROWS: usize = 384 / TILE_NCOLS;
+pub const TILE_NCOLS: usize = 32;
+pub const TILE_NROWS: usize = 768 / TILE_NCOLS;
 pub const TILEW: usize = TILE_NCOLS * 8;
 pub const TILEH: usize = TILE_NROWS * 8;
 
@@ -45,10 +45,12 @@ pub fn print_cpu_status(cpu: &CPU, opcode_byte: u8, opcode: Op, extra_bytes: u8,
 
 pub fn draw_tilemap(ppu: &PPU) -> Vec<u32> {
     let mut buffer = vec![0; TILE_NROWS * TILE_NCOLS * 64];
-    for tile_nr in 0..384 {
+    for tile_nr in 0..768 {
         for row_idx in 0..8 {
-            let tile_row_addr = row_idx as u16 * 2 + 0x8000 + (tile_nr as u16) * 16;
-            let (tile_row_l, tile_row_h) = (ppu.r(tile_row_addr), ppu.r(tile_row_addr + 1));
+            let vbank = tile_nr >= 384;
+            let tile_row_addr = row_idx as u16 * 2 + 0x8000 + ((tile_nr % 384) as u16) * 16;
+            let tile_row_l = ppu.vram[PPU::vram_addr(tile_row_addr, vbank)];
+            let tile_row_h = ppu.vram[PPU::vram_addr(tile_row_addr + 1, vbank)];
             for i in 0..8 {
                 let px = (tile_row_l >> (7 - i) & 1) | ((tile_row_h >> (7 - i) & 1) << 1);
                 let (x, y) = ((tile_nr % TILE_NCOLS) * 8 + i, (tile_nr / TILE_NCOLS) * 8 + row_idx);

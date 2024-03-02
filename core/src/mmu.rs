@@ -27,6 +27,7 @@ pub struct MMU {
     hdma: [u8; 4],
     hdma_mode: Option<bool>,
     hdma_len: u8,
+    hdma_last_ly: Option<u8>,
 }
 
 impl MMU {
@@ -49,6 +50,7 @@ impl MMU {
             hdma: [0xFF; 4],
             hdma_mode: None,
             hdma_len: 0,
+            hdma_last_ly: None,
         }
     }
 
@@ -72,7 +74,7 @@ impl MMU {
             0xFF4D          /* Speed  */ => (self.double_speed as u8) << 7,
             0xFF50          /*Boot ROM*/ => self.mbc.boot_rom_unmounted as u8,
             0xFF51..=0xFF54 /*  HDMA  */ => self.hdma[(addr - 0xFF51) as usize],
-            0xFF55          /*  HDMA  */ => self.hdma_len | if self.hdma_mode == Some(true) { 0 } else { 0x80 },
+            0xFF55          /*  HDMA  */ => self.hdma_len | if self.hdma_mode == Some(true) { 0x00 } else { 0x80 },
             0xFF40..=0xFF6C /* VRAM R */ => self.ppu.r(addr),
             0xFF70          /* WBank  */ => self.wbank,
 
@@ -136,8 +138,10 @@ impl MMU {
         if self.hdma_mode == None { // Start VDMA
             self.hdma_mode = Some(mode);
             self.hdma_len = val & 0x7F;
+            self.hdma_last_ly = if mode { Some(self.ppu.ly) } else { None };
         } else if !mode { // Interrupt VDMA
-            self.hdma_mode = None
+            self.hdma_mode = None;
+            self.hdma_last_ly = None;
         }
     }
 
@@ -154,15 +158,17 @@ impl MMU {
         } else {
             self.hdma_len = 0x7F;
             self.hdma_mode = None;
+            self.hdma_last_ly = None;
         }
     }
 
-    fn step_vdma(&mut self) -> u8 {
+    fn step_vdma(&mut self) -> u16 {
         if self.hdma_mode == Some(true) { // HDMA: single block per HBlank
-            if self.ppu.mode() != PPUMode::HBLANK { 0 }
-            else {
-                self.step_hdma(); 8 * 4
-            }
+            if self.ppu.mode() == PPUMode::HBLANK && self.hdma_last_ly != Some(self.ppu.ly)  {
+                self.hdma_last_ly = Some(self.ppu.ly);
+                self.step_hdma();
+                8 * 4
+            } else { 0 }
         } else if self.hdma_mode == Some(false) { // GDMA: immediate transfer
             while self.hdma_mode != None {
                 self.step_hdma();
@@ -174,7 +180,7 @@ impl MMU {
         self.joypad = joypad.clone();
     }
 
-    pub fn step(&mut self, mut elapsed_ticks: u8) -> Option<&LCDBuffer> {
+    pub fn step(&mut self, mut elapsed_ticks: u16) -> Option<&LCDBuffer> {
         // Perform HDMA/GDMA transfer if needed
         elapsed_ticks += self.step_vdma();
 

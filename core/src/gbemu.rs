@@ -19,8 +19,12 @@ impl GBEmu {
         frame_buffer
     }
 
-    pub fn switch_palette(&mut self, next: bool) {
-        self.cpu.mmu.ppu.lcd.switch_palette(next);
+    pub fn current_palette(&self) -> i16 {
+        self.cpu.mmu.ppu.lcd.dmg_palette_idx
+    }
+
+    pub fn set_palette(&mut self, palette_idx: i16) {
+        self.cpu.mmu.ppu.lcd.set_palette(palette_idx);
     }
 
     pub fn rom_title(&self) -> String {

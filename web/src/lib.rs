@@ -7,6 +7,7 @@ use base64::{engine::general_purpose, Engine as _};
 use gb_core::{lcd, GBEmu, Joypad};
 
 const SCALE: usize = 4;
+const PALETTE_IDX_KEY: &str = "palette_idx";
 
 struct EmuState {
     speed: u32,
@@ -72,6 +73,12 @@ pub fn start(rom: &[u8]) {
         None => console::log_1(&"Could not find save file".into()),
     }
 
+    // Restore last used palette
+    match local_storage.get_item(PALETTE_IDX_KEY).unwrap() {
+        Some(palette_idx) => emulator.set_palette(palette_idx.parse().unwrap()),
+        None => (),
+    }
+
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
     let mut frame_count = 0;
@@ -82,7 +89,9 @@ pub fn start(rom: &[u8]) {
         loop {
             // Update palette
             if let Some(switch) = state.switch_palette.take() {
-                emulator.switch_palette(switch);
+                let new_palette_idx = emulator.current_palette() + if switch { 1 } else { -1 };
+                emulator.set_palette(new_palette_idx);
+                local_storage.set_item(PALETTE_IDX_KEY, &new_palette_idx.to_string()).unwrap();
             }
 
             // Run emulator steps until a frame is available to be drawn

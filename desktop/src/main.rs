@@ -113,7 +113,10 @@ fn main() {
             if window.is_key_pressed(Key::Space, KeyRepeat::No) { paused = true }
             if window.is_key_released(Key::Equal) { speed *= 2.0 }
             if window.is_key_released(Key::Minus) { speed /= 2.0 }
-            if window.is_key_released(Key::Tab) { emulator.switch_palette(!window.is_key_down(Key::LeftShift)) }
+            if window.is_key_released(Key::Tab) {
+                let new_palette_idx = emulator.current_palette() + if !window.is_key_down(Key::LeftShift) { 1 } else { -1 }; 
+                emulator.set_palette(new_palette_idx);
+            }
             speed = clamp(1.0, speed, 256.0);
             set_emulation_speed(&mut window, speed);
 

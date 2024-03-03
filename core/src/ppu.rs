@@ -53,6 +53,8 @@ pub struct PPU {
 
     // Emulator internal state
     scanline_ticks: u16,
+    scanline_bg_colors: [u8; LCDW], // BG color indexes
+    scanline_bg_pri: [bool; LCDW],  // BG priorities values
 }
 
 impl PPU {
@@ -69,6 +71,8 @@ impl PPU {
             bgpi: 0, obpi: 0,
             bgpalette: [0xFF; 64], obpalette: [0xFF; 64],
             scanline_ticks: 0,
+            scanline_bg_colors: [0; LCDW],
+            scanline_bg_pri: [false; LCDW],
         }
     }
 
@@ -223,7 +227,7 @@ impl PPU {
         // Draw single scanline when the PPU enters HBlank
         if new_mode == Some(PPUMode::HBLANK) {
             // Draw background
-            if self.lcdc.bg_enable {
+            if self.lcdc.bg_enable || self.cgb_mode {
                 for lx in 0..(LCDW as u8 / 8 + 1) {
                     let tilemap_x = ((self.scx / 8) + lx) % 32;
                     let tilemap_y = self.scy.wrapping_add(self.ly);
@@ -235,6 +239,8 @@ impl PPU {
                         let x = (lx * 8) as i16 - (self.scx % 8) as i16 + i as i16;
                         if x < 0 || x >= LCDW as i16 { continue }
                         let px = PPU::rpx(tile, i, flags.x_flip);
+                        self.scanline_bg_colors[x as usize] = px;
+                        self.scanline_bg_pri[x as usize] = flags.bg_priority;
                         if self.cgb_mode {
                             let palette = PPU::rpalette(&self.bgpalette, flags.cgbp2, flags.cgbp1, flags.cgbp0);
                             self.lcd.w_cgb(x as u8, self.ly, px, palette);
@@ -246,7 +252,7 @@ impl PPU {
             }
             // Draw window
             let wx = self.wx as i16 - 7;
-            if self.lcdc.window_enable && (self.cgb_mode || self.lcdc.bg_enable) && self.wy <= self.ly && wx < LCDH as i16 {
+            if self.lcdc.window_enable && (self.lcdc.bg_enable || self.cgb_mode) && self.wy <= self.ly && wx < LCDH as i16 {
                 for lx in 0..(LCDW as u8 / 8 + 1) {
                     let tile_nr = self.rtilemap(lx, self.wly / 8, self.lcdc.window_mode, false);
                     let flags = BGFlags::from(self.rtilemap(lx, self.wly / 8, self.lcdc.window_mode, true));
@@ -256,6 +262,8 @@ impl PPU {
                         let x = (lx * 8) as i16 + wx + i as i16;
                         if x < 0 || x >= LCDW as i16 { continue }
                         let px = PPU::rpx(tile, i, flags.x_flip);
+                        self.scanline_bg_colors[x as usize] = px;
+                        self.scanline_bg_pri[x as usize] = flags.bg_priority;
                         if self.cgb_mode {
                             let palette = PPU::rpalette(&self.bgpalette, flags.cgbp2, flags.cgbp1, flags.cgbp0);
                             self.lcd.w_cgb(x as u8, self.ly, px, palette);
@@ -297,8 +305,8 @@ impl PPU {
                         if x < 0 || x >= LCDW as i16 { continue }
                         let px = PPU::rpx(tile, i, flags.x_flip);
                         // Skip pixel if transparent or if piority is set to BG and BG is not transparent
-                        let bg_has_priority = self.lcd.r(x as u8, self.ly) != 0 && if self.cgb_mode {
-                            flags.bg_priority && self.lcdc.bg_enable // (!flags.bg_priority || !bg_flags.bg_priority)
+                        let bg_has_priority = self.scanline_bg_colors[x as usize] != 0 && if self.cgb_mode {
+                            self.lcdc.bg_enable && (flags.bg_priority || self.scanline_bg_pri[x as usize])
                         } else {
                             flags.bg_priority
                         };

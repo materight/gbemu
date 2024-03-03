@@ -6,8 +6,6 @@ pub type LCDBuffer =  [u32; LCD_BUFFER_SIZE];
 
 pub struct LCD {
     pub buffer: LCDBuffer,
-    color_nr: [u8; LCD_BUFFER_SIZE],
-
     pub dmg_palette_idx: i16,
 }
 
@@ -15,7 +13,6 @@ impl LCD {
     pub fn new() -> Self {
         Self {
             buffer: [0; LCD_BUFFER_SIZE],
-            color_nr: [0; LCD_BUFFER_SIZE],
             dmg_palette_idx: 0,
         }
     }
@@ -61,17 +58,11 @@ impl LCD {
     pub fn w_dmg(&mut self, x: u8, y: u8, val: u8, palette: u8) {
         let idx = LCD::get_idx(x, y);
         self.buffer[idx] = self.to_color_dmg(val, palette);
-        self.color_nr[idx] = val;
     }
 
     pub fn w_cgb(&mut self, x: u8, y: u8, val: u8, palette: &[u8]) {
         let idx = LCD::get_idx(x, y);
         self.buffer[idx] = self.to_color_cgb(val, palette);
-        self.color_nr[idx] = val;
-    }
-
-    pub fn r(&mut self, x: u8, y: u8) -> u8 {
-        self.color_nr[LCD::get_idx(x, y)]
     }
 
 }

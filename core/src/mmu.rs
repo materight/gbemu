@@ -1,4 +1,4 @@
-use crate::spu::SPU;
+use crate::apu::APU;
 use crate::clock::Clock;
 use crate::joypad::Joypad;
 use crate::lcd::LCDBuffer;
@@ -15,7 +15,7 @@ pub struct MMU {
     hram: [u8; HRAM_SIZE],
     pub ppu: PPU,
     pub clock: Clock,
-    pub spu: SPU,
+    pub apu: APU,
 
     pub IF: u8,
     pub IE: u8,
@@ -41,7 +41,7 @@ impl MMU {
             hram: [0; HRAM_SIZE],
             ppu: PPU::new(gcb_mode),
             clock: Clock::new(),
-            spu: SPU::new(),
+            apu: APU::new(),
             IF: 0, IE: 0,
             joypad: Joypad::default(),
             joyp: 0,
@@ -69,7 +69,7 @@ impl MMU {
             0xFF01..=0xFF02 /* Serial */ => 0xFF,
             0xFF04..=0xFF07 /* Clock  */ => self.clock.r(addr),
             0xFF0F          /*   IF   */ => self.IF,
-            0xFF10..=0xFF3F /*  APU   */ => self.spu.r(addr),
+            0xFF10..=0xFF3F /*  APU   */ => self.apu.r(addr),
             0xFF46          /*  DMA   */ => 0xFF,
             0xFF4D          /* Speed  */ => (self.double_speed as u8) << 7,
             0xFF50          /*Boot ROM*/ => self.mbc.boot_rom_unmounted as u8,
@@ -100,7 +100,7 @@ impl MMU {
             0xFF01..=0xFF02 /* Serial */ => (),
             0xFF04..=0xFF07 /* Clock  */ => self.clock.w(addr, val),
             0xFF0F          /*   IF   */ => self.IF = val,
-            0xFF10..=0xFF3F /*  APU   */ => self.spu.w(addr, val),
+            0xFF10..=0xFF3F /*  APU   */ => self.apu.w(addr, val),
             0xFF46          /*  DMA   */ => self.dma(val),
             0xFF4D          /* Speed  */ => if val & 0x01 != 0 { self.double_speed = !self.double_speed },
             0xFF50          /*Boot ROM*/ => self.mbc.boot_rom_unmounted = val != 0,

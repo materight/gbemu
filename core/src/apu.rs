@@ -1,5 +1,5 @@
 
-pub struct SPU {
+pub struct APU {
     nr1: [u8; 5],
     nr2: [u8; 5],
     nr3: [u8; 5],
@@ -8,7 +8,7 @@ pub struct SPU {
     ram: [u8; 0x10]
 }
 
-impl SPU {
+impl APU {
     pub fn new() -> Self {
         Self {
             nr1: [0; 5],

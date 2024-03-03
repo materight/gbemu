@@ -2,7 +2,7 @@ pub mod cpu;
 pub mod mbc;
 pub mod registers;
 pub mod mmu;
-pub mod apu;
+pub mod spu;
 pub mod instructions;
 pub mod joypad;
 pub mod ppu;

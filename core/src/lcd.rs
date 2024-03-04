@@ -47,11 +47,26 @@ impl LCD {
             3 => u16::from_le_bytes([palette[6], palette[7]]),
             _ => panic!("Color ID {} not supported", val)
         };
-        // Convert to 32bit using color correction
         let (r5, g5, b5) = (color15 & 0x1F, (color15 >> 5) & 0x1F, (color15 >> 10) & 0x1F);
+        // Convert to 32bit using color correction
         let r8 = ((r5 * 13 + g5 * 2 + b5) >> 1) & 0xFF;
         let g8 = ((g5 * 3 + b5) << 1) & 0xFF;
         let b8 = ((r5 * 3 + g5 * 2 + b5 * 11) >> 1) & 0xFF;
+        // Perform gamma expansion
+        // let rgb_max = 31.0;
+        // let gamma = 2.2;
+        // let mut rf = ((r5 as f32) * (1.0 / rgb_max)).powf(gamma);
+        // let mut gf = ((g5 as f32) * (1.0 / rgb_max)).powf(gamma);
+        // let mut bf = ((b5 as f32) * (1.0 / rgb_max)).powf(gamma);
+        // // Perform colour mangling and gamma compression
+        // rf = (0.94 * ((0.820 * rf) + (0.240 * gf) + (-0.06 * bf))).max(0.0).powf(1.0 / gamma).min(1.0);
+        // gf = (0.94 * ((0.125 * rf) + (0.665 * gf) + ( 0.21 * bf))).max(0.0).powf(1.0 / gamma).min(1.0);
+        // bf = (0.94 * ((0.195 * rf) + (0.075 * gf) + ( 0.73 * bf))).max(0.0).powf(1.0 / gamma).min(1.0);
+        // // Convert to 8bit
+        // let r8 = (((rf * rgb_max) + 0.5) as u8) << 3;
+        // let g8 = (((gf * rgb_max) + 0.5) as u8) << 3;
+        // let b8 = (((bf * rgb_max) + 0.5) as u8) << 3;
+        // Merge into a single 32bit value 
         (0xFF << 24) | (r8 as u32) << 16 | (g8 as u32) << 8 | (b8 as u32)
     }
 

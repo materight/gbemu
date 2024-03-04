@@ -20,11 +20,11 @@ impl GBEmu {
     }
 
     pub fn current_palette(&self) -> i16 {
-        self.cpu.mmu.ppu.lcd.dmg_palette_idx
+        self.cpu.mmu.ppu.lcd.palette_idx
     }
 
     pub fn set_palette(&mut self, palette_idx: i16) {
-        self.cpu.mmu.ppu.lcd.set_palette(palette_idx);
+        self.cpu.mmu.ppu.lcd.set_palette(self.cpu.mmu.ppu.cgb_mode, palette_idx);
     }
 
     pub fn rom_title(&self) -> String {

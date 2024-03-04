@@ -43,7 +43,7 @@ pub struct PPU {
     wx: u8,   // Window X coord
     wly: u8,  // Count lines with window pixels in it
 
-    cgb_mode: bool, // Wether the current ROM supports CGB features
+    pub cgb_mode: bool, // Wether the current ROM supports CGB features
     vbank: bool, // VRAM bank (CGB)
     opri: bool,  // Object priority mode (CGB)
     bgpi: u8,    // BG palette index (CGB)

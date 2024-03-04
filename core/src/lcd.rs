@@ -21,9 +21,8 @@ impl LCD {
         (x as usize) + (y as usize) * LCDW
     }
 
-    pub fn set_palette(&mut self, cgb_mode: bool, index: i16) {
-        let max_len = if cgb_mode { palette::CGB_PALETTES.len() } else { palette::DMG_PALETTES.len() } as i16;
-        self.palette_idx = index.rem_euclid(max_len);
+    pub fn set_palette(&mut self, index: i16) {
+        self.palette_idx = index.rem_euclid(palette::DMG_PALETTES.len() as i16);
     }
 
     pub fn to_color_dmg(&self, val: u8, palette: u8) -> u32 {
@@ -48,28 +47,9 @@ impl LCD {
         };
         let (r5, g5, b5) = (color15 & 0x1F, (color15 >> 5) & 0x1F, (color15 >> 10) & 0x1F);
         // Convert to 32bit using color correction
-        let (r8, g8, b8);
-        if self.palette_idx == 0 {
-            // "Fast" color correction
-            r8 = (((r5 * 13 + g5 * 2 + b5) >> 1) & 0xFF) as u8;
-            g8 = (((g5 * 3 + b5) << 1) & 0xFF) as u8;
-            b8 = (((r5 * 3 + g5 * 2 + b5 * 11) >> 1) & 0xFF) as u8;
-        } else {
-            // Perform gamma expansion
-            let rgb_max = 31.0;
-            let (_, gamma, brightness) = palette::CGB_PALETTES[self.palette_idx as usize];
-            let mut rf = (r5 as f32 / rgb_max).powf(gamma - brightness);
-            let mut gf = (g5 as f32 / rgb_max).powf(gamma - brightness);
-            let mut bf = (b5 as f32 / rgb_max).powf(gamma - brightness);
-            // Perform colour mangling and gamma compression
-            rf = (0.94 * ((0.820 * rf) + (0.240 * gf) + (-0.06 * bf))).max(0.0).powf(1.0 / gamma).min(1.0);
-            gf = (0.94 * ((0.125 * rf) + (0.665 * gf) + ( 0.21 * bf))).max(0.0).powf(1.0 / gamma).min(1.0);
-            bf = (0.94 * ((0.195 * rf) + (0.075 * gf) + ( 0.73 * bf))).max(0.0).powf(1.0 / gamma).min(1.0);
-            // Convert to 8bit
-            r8 = (((rf * rgb_max) + 0.5) as u8) << 3;
-            g8 = (((gf * rgb_max) + 0.5) as u8) << 3;
-            b8 = (((bf * rgb_max) + 0.5) as u8) << 3;
-        }
+        let r8 = (((r5 * 13 + g5 * 2 + b5) >> 1) & 0xFF) as u8;
+        let g8 = (((g5 * 3 + b5) << 1) & 0xFF) as u8;
+        let b8 = (((r5 * 3 + g5 * 2 + b5 * 11) >> 1) & 0xFF) as u8;
         // Merge into a single 32bit value 
         (0xFF << 24) | (r8 as u32) << 16 | (g8 as u32) << 8 | (b8 as u32)
     }
@@ -103,11 +83,5 @@ pub mod palette{
         ( "Nuclear", [0xffe2f3e4, 0xff94e344, 0xff46878f, 0xff332c50]),
         (  "Rustic", [0xffa96868, 0xffedb4a1, 0xff764462, 0xff2c2137]),
         (    "Wish", [0xff8be5ff, 0xff608fcf, 0xff7550e8, 0xff622e4c]),
-    ];
-
-    // Brightness correction values for CGB
-    pub const CGB_PALETTES: [(&str, f32, f32); 2] = [
-        (    "Fast", 0.0, 0.0),
-        ("Accurate", 1.6, 0.0),
     ];
 }

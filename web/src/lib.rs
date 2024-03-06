@@ -86,30 +86,29 @@ pub fn start(rom: &[u8]) {
     let mut frame_count = 0;
     *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
         let mut state = state.borrow_mut();
-        let frame_buffer = if state.rewind && emulator.can_rewind() {
-            // Rewind state if requested
-            emulator.rewind()
-        } else {
-            // Wait for next frame to be available
-            loop {
-                // Update palette
-                if let Some(switch) = state.switch_palette.take() {
-                    let new_palette_idx = emulator.current_palette() + if switch { 1 } else { -1 };
-                    emulator.set_palette(new_palette_idx);
-                    local_storage.set_item(PALETTE_IDX_KEY, &new_palette_idx.to_string()).unwrap();
-                }
+        let frame_buffer = loop {
+            // Update palette
+            if let Some(switch) = state.switch_palette.take() {
+                let new_palette_idx = emulator.current_palette() + if switch { 1 } else { -1 };
+                emulator.set_palette(new_palette_idx);
+                local_storage.set_item(PALETTE_IDX_KEY, &new_palette_idx.to_string()).unwrap();
+            }
 
+            let frame_buffer = if state.rewind && emulator.can_rewind() {
+                // Rewind state if requested
+                emulator.rewind()
+            } else {
                 // Run emulator steps until a frame is available to be drawn
-                let frame_buffer = emulator.step(&state.joypad);
+                emulator.step(&state.joypad)
+            };
 
-                // Return available frame
-                if let Some(frame_buffer) = frame_buffer {
-                    frame_count += 1;
-                    // Skip drawn frames to match the requested speed
-                    if frame_count % state.speed == 0 {
-                        break Some(frame_buffer)
-                    } 
-                }
+            // Return available frame
+            if let Some(frame_buffer) = frame_buffer {
+                frame_count += 1;
+                // Skip drawn frames to match the requested speed
+                if frame_count % state.speed == 0 {
+                    break Some(frame_buffer)
+                } 
             }
         };
 

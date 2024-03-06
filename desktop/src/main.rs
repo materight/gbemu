@@ -95,7 +95,7 @@ fn main() {
             select: window.is_key_down(Key::Backspace),
         };
 
-        let new_frame_buffer = if window.is_key_down(Key::R) && emulator.can_rewind() {
+        let frame_buffer = if window.is_key_down(Key::R) && emulator.can_rewind() {
             // Rewind to last state
             emulator.rewind()
         } else {
@@ -104,7 +104,7 @@ fn main() {
         };
 
         // Executed once per frame
-        if let Some(frame_buffer) = new_frame_buffer {
+        if let Some(frame_buffer) = frame_buffer {
             frame_count += 1;
 
             // Write frame to buffer

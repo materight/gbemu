@@ -1,4 +1,5 @@
 
+#[derive(Copy, Clone)]
 pub struct APU {
     nr1: [u8; 5],
     nr2: [u8; 5],

@@ -4,6 +4,7 @@ pub const LCD_BUFFER_SIZE: usize = LCDW * LCDH;
 
 pub type LCDBuffer =  [u32; LCD_BUFFER_SIZE];
 
+#[derive(Clone)]
 pub struct LCD {
     pub buffer: LCDBuffer,
     pub palette_idx: i16,
@@ -55,13 +56,24 @@ impl LCD {
     }
 
     pub fn w_dmg(&mut self, x: u8, y: u8, val: u8, palette: u8) {
-        let idx = LCD::get_idx(x, y);
-        self.buffer[idx] = self.to_color_dmg(val, palette);
+        self.buffer[LCD::get_idx(x, y)] = self.to_color_dmg(val, palette);
     }
 
     pub fn w_cgb(&mut self, x: u8, y: u8, val: u8, palette: &[u8]) {
-        let idx = LCD::get_idx(x, y);
-        self.buffer[idx] = self.to_color_cgb(val, palette);
+        self.buffer[LCD::get_idx(x, y)] = self.to_color_cgb(val, palette);
+    }
+
+    pub fn w_rewind_symbol(&mut self) {
+        // Draw two left triangles on top-right corner
+        let (size, px, py) = (5, LCDW as u8 - 12, 2);
+        for i in 0..2 {
+            for y in 0..(size * 2) - 1 {
+                let x_start = if y < size { size - y - 1 } else { y - size + 1 };
+                for x in x_start..size {
+                    self.buffer[LCD::get_idx(px + x + (i * size), py + y)] = 0xffff0000;
+                }
+            }
+        }
     }
 
 }

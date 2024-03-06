@@ -9,6 +9,7 @@ const WRAM_SIZE: usize = 0x8000;
 const HRAM_SIZE:usize = 0x0080;
 
 #[allow(non_snake_case)]
+#[derive(Clone)]
 pub struct MMU {
     pub mbc: MBC,
     wram: [u8; WRAM_SIZE],

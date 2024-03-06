@@ -1,9 +1,11 @@
+use std::rc::Rc;
 
 pub const DMG_BOOT_ROM: &[u8] = include_bytes!("./boot_dmg.bin");
 pub const CGB_BOOT_ROM: &[u8] = include_bytes!("./boot_cgb.bin");
 
+#[derive(Clone)]
 pub struct MBC {
-    rom: Vec<u8>,
+    rom: Rc<Vec<u8>>,
     ram: Vec<u8>,
     mbc_type: Box<dyn MBCType>,
 
@@ -19,7 +21,7 @@ impl MBC {
             v => panic!("RAM size {:#04x} not supported", v),
         };
         Self {
-            rom: rom.to_vec(),
+            rom: Rc::new(rom.to_vec()),
             ram: vec![0; ram_size],
             mbc_type: new_mbc(mbc_type),
             force_dmg: force_dmg,
@@ -70,10 +72,28 @@ impl MBC {
 
 
 
-
-pub trait MBCType {
+pub trait MBCType: MBCTypeClone {
     fn r(&self, addr: u16, rom: &[u8], ram: &[u8]) -> u8;
     fn w(&mut self, addr: u16, val: u8, rom: &[u8], ram: &mut [u8]);
+}
+
+pub trait MBCTypeClone {
+    fn clone_box(&self) -> Box<dyn MBCType>;
+}
+
+impl<T> MBCTypeClone for T
+where
+    T: 'static + MBCType + Clone,
+{
+    fn clone_box(&self) -> Box<dyn MBCType> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn MBCType> {
+    fn clone(&self) -> Box<dyn MBCType> {
+        self.clone_box()
+    }
 }
 
 fn bank_addr(addr: u16, bank_nr: u16, base: u16, size: u16) -> usize {
@@ -95,8 +115,7 @@ fn new_mbc(mbc_type: u8) -> Box<dyn MBCType> {
 }
 
 
-
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 struct MBC0;
 impl MBCType for MBC0 {
     fn r(&self, addr: u16, rom: &[u8], _: &[u8]) -> u8 { 
@@ -111,7 +130,7 @@ impl MBCType for MBC0 {
 
 
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 struct MBC1 {
     rom_bank: u8,
     ram_bank: u8,
@@ -159,7 +178,7 @@ impl MBCType for MBC1 {
 
 
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 struct MBC3 {
     rom_bank: u8,
     ram_bank: u8,
@@ -201,7 +220,7 @@ impl MBCType for MBC3 {
 
 
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 struct MBC5 {
     rom_bank: u16,
     ram_bank: u8,

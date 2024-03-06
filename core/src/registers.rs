@@ -14,6 +14,7 @@ pub enum R16 { BC, DE, HL, AF, SP, PC }
 pub enum CC { NZ, Z, NC, C }
 
 
+#[derive(Copy, Clone)]
 pub struct Registers {
     pub a: u8,
     pub b: u8,

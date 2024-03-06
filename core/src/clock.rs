@@ -1,5 +1,6 @@
 use crate::cpu::INT_TIMER;
 
+#[derive(Copy, Clone)]
 pub struct Clock {
     sysclock: u16,
     prev_edge_bit: bool, // Used to correctly compute a "falling edge" in the clock
@@ -8,6 +9,7 @@ pub struct Clock {
     tma: u8,
     tac: u8,
 }
+
 impl Clock {
     pub fn new() -> Self { Self {sysclock: 0, prev_edge_bit: false, tima: 0, tma: 0, tac: 0} }
 

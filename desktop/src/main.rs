@@ -95,8 +95,13 @@ fn main() {
             select: window.is_key_down(Key::Backspace),
         };
 
-        // Run emulator step, i.e. execute next opcode
-        let new_frame_buffer = emulator.step(&joypad);
+        let new_frame_buffer = if window.is_key_down(Key::R) && emulator.can_rewind() {
+            // Rewind to last state
+            emulator.rewind()
+        } else {
+            // Run emulator step, i.e. execute next opcode
+            emulator.step(&joypad)
+        };
 
         // Executed once per frame
         if let Some(frame_buffer) = new_frame_buffer {
@@ -107,7 +112,7 @@ fn main() {
 
             // Write tiles
             if let Some(wnd) = &mut tile_window {
-                (*wnd).update_with_buffer(&debug::draw_tilemap(&emulator.cpu.mmu.ppu), debug::TILEW, debug::TILEH).unwrap();
+                (*wnd).update_with_buffer(&emulator.draw_tilemap(), debug::TILEW, debug::TILEH).unwrap();
             }
 
             // Handle shortcuts

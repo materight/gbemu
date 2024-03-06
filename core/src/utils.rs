@@ -11,7 +11,7 @@ pub trait Set<R, T> {
 macro_rules! byte_register {
     ($name:ident { $($field:ident),* }) => {
 
-        #[derive(Debug, PartialEq)]
+        #[derive(Debug, PartialEq, Copy, Clone)]
         pub struct $name {
             $(pub $field: bool),*
         }

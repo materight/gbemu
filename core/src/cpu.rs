@@ -14,6 +14,7 @@ pub const INT_SERIAL: (u8, u16) = (0x08, 0x0058);
 pub const INT_JOYPAD: (u8, u16) = (0x10, 0x0060);
 
 
+#[derive(Clone)]
 pub struct CPU {
     pub reg: Registers,
     pub mmu: MMU,

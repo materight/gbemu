@@ -25,6 +25,7 @@ impl PPUMode {
     pub const DRAW: PPUMode = PPUMode(true, true);
 }
 
+#[derive(Clone)]
 pub struct PPU {
     pub lcd: LCD,
     pub vram: [u8; VRAM_SIZE],

@@ -108,7 +108,7 @@ fn main() {
             frame_count += 1;
 
             // Write frame to buffer
-            window.update_with_buffer(frame_buffer, lcd::LCDW, lcd::LCDH).unwrap();
+            window.update_with_buffer(&frame_buffer.frame, lcd::LCDW, lcd::LCDH).unwrap();
 
             // Write tiles
             if let Some(wnd) = &mut tile_window {
@@ -122,6 +122,10 @@ fn main() {
             if window.is_key_released(Key::Tab) {
                 let new_palette_idx = emulator.current_palette() + if !window.is_key_down(Key::LeftShift) { 1 } else { -1 }; 
                 emulator.set_palette(new_palette_idx);
+            }
+            if window.is_key_released(Key::P) {
+                let new_3d_mode_idx = emulator.current_3d_mode() + if !window.is_key_down(Key::LeftShift) { 1 } else { -1 }; 
+                emulator.set_3d_mode(new_3d_mode_idx);
             }
             speed = clamp(1.0, speed, 256.0);
             set_emulation_speed(&mut window, speed);

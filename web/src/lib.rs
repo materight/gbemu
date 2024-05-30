@@ -12,6 +12,7 @@ const PALETTE_IDX_KEY: &str = "palette_idx";
 struct EmuState {
     speed: u32,
     switch_palette: Option<bool>,
+    switch_3d_mode: Option<bool>,
     rewind: bool,
     joypad: Joypad,
 }
@@ -35,6 +36,8 @@ fn key_status_change(state: &mut EmuState, event: &KeyboardEvent, is_down: bool)
         "Minus" if !is_down => state.speed = (state.speed / 2).clamp(1, 32),
         "Tab" if !is_down && !event.shift_key() => state.switch_palette = Some(true),
         "Tab" if !is_down && event.shift_key() => state.switch_palette = Some(false),
+        "KeyP" if !is_down && !event.shift_key() => state.switch_3d_mode = Some(true),
+        "KeyP" if !is_down && event.shift_key() => state.switch_3d_mode = Some(false),
         "KeyR" => state.rewind = is_down,
         _ => (),
     };
@@ -47,7 +50,7 @@ pub fn start(rom: &[u8]) {
     let mut emulator = GBEmu::new(&rom, false);
     let savekey = format!("{} - {}", emulator.rom_checksum(), emulator.rom_title());
     let (lcdw, lcdh) = (lcd::LCDW * SCALE, lcd::LCDH * SCALE);
-    let state = Rc::new(RefCell::new(EmuState { speed: 1, switch_palette: None, rewind: false, joypad: Joypad::default() }));
+    let state = Rc::new(RefCell::new(EmuState { speed: 1, switch_palette: None, switch_3d_mode: None, rewind: false, joypad: Joypad::default() }));
 
     // Init window and canvas
     panic::set_hook(Box::new(console_error_panic_hook::hook));
@@ -93,6 +96,11 @@ pub fn start(rom: &[u8]) {
                 emulator.set_palette(new_palette_idx);
                 local_storage.set_item(PALETTE_IDX_KEY, &new_palette_idx.to_string()).unwrap();
             }
+            // Update 3D mode
+            if let Some(switch) = state.switch_3d_mode.take() {
+                let new_3d_mode_idx = emulator.current_3d_mode() + if switch { 1 } else { -1 };
+                emulator.set_3d_mode(new_3d_mode_idx);
+            }
 
             let frame_buffer = if state.rewind && emulator.can_rewind() {
                 // Rewind state if requested
@@ -113,7 +121,7 @@ pub fn start(rom: &[u8]) {
         };
 
         // Resize image to match scaled canvas
-        let frame_buffer = frame_buffer.unwrap();
+        let frame_buffer = frame_buffer.unwrap().frame;
         let mut img = vec![0; frame_buffer.len() * (SCALE * SCALE) * 4];
         for i in 0..frame_buffer.len() {
             let [_, r, g, b] = frame_buffer[i].to_be_bytes();

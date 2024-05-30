@@ -2,28 +2,107 @@ pub const LCDW: usize = 160;
 pub const LCDH: usize = 144;
 pub const LCD_BUFFER_SIZE: usize = LCDW * LCDH;
 
-pub type LCDBuffer =  [u32; LCD_BUFFER_SIZE];
+#[derive(Clone)]
+pub struct LCDBuffer {
+    pub frame: [u32; LCD_BUFFER_SIZE],
+    pub background: [u32; LCD_BUFFER_SIZE],
+    pub foreground: [u32; LCD_BUFFER_SIZE],
+}
+impl LCDBuffer {
+    pub fn new() -> Self {
+        Self {
+            frame: [0; LCD_BUFFER_SIZE],
+            background: [0; LCD_BUFFER_SIZE],
+            foreground: [0; LCD_BUFFER_SIZE],
+        }
+    }
+
+    fn to_idx(x: u8, y: u8) -> usize {
+        return (x as usize) + (y as usize) * LCDW;
+    }
+
+    fn w(&mut self, x: u8, y: u8, color: u32, is_foreground: bool) {
+        let idx =  LCDBuffer::to_idx(x, y);
+        self.frame[idx] = color;
+        if is_foreground {
+            self.foreground[idx] = color;
+        } else {
+            self.background[idx] = color;
+            self.foreground[idx] = 0;
+        }
+    }
+
+    fn draw_drop_shadow(&mut self, offset_x: i16, offset_y: i16) {
+        for x in 0..(LCDW as i16) {
+            for y in 0..(LCDH as i16) {
+                let idx =  LCDBuffer::to_idx(x as u8, y as u8);
+                if self.foreground[idx] != 0 {
+                    self.frame[idx] = self.foreground[idx];
+                } else {
+                    self.frame[idx] = self.background[idx];
+                    let (shadow_ref_x, shadow_ref_y) = (x - offset_x, y - offset_y);
+                    if 0 <= shadow_ref_x && shadow_ref_x < LCDW as i16 && 0 <= shadow_ref_y && shadow_ref_y < LCDH as i16 {
+                        let shadow_ref_idx = LCDBuffer::to_idx(shadow_ref_x as u8, shadow_ref_y as u8);
+                        if self.foreground[shadow_ref_idx] != 0 {
+                            let [_, r, g, b] = self.frame[idx].to_be_bytes();
+                            self.frame[idx] = u32::from_be_bytes([0xFF, r / 4 * 3, g / 4 * 3, b / 4 * 3]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn draw_anaglyph_3d(&mut self, offset_background: u8, offset_foreground: u8) {
+        for xr in 0..(LCDW as u8) {
+            for y in 0..(LCDH as u8) {
+                // Retrieve right pixel from original frame
+                let idxr: usize =  LCDBuffer::to_idx(xr as u8, y as u8);
+                let pxr = if self.foreground[idxr] != 0 { self.foreground[idxr] } else { self.background[idxr] };
+                let [_, _, gr, br] = pxr.to_be_bytes();
+                // Retrieve left pixel with a different displacement for foreground and background
+                let (xl_bg, xl_fg) = (xr + offset_background,  xr + offset_foreground);
+                let idxl_fg: usize =  LCDBuffer::to_idx(xl_fg as u8, y as u8);
+                let pxl = if xl_fg < LCDW as u8 && self.foreground[idxl_fg] != 0 {
+                    self.foreground[idxl_fg]
+                } else if xl_bg < LCDW as u8 {
+                    let idxl_bg = LCDBuffer::to_idx(xl_bg as u8, y as u8);
+                    self.background[idxl_bg]
+                } else {
+                    0
+                };
+                let [_, rl, _, _] = pxl.to_be_bytes();
+                // Combine into one. TODO: check other algorithms: https://www.3dtv.at/knowhow/anaglyphcomparison_en.aspx
+                self.frame[idxr] = u32::from_be_bytes([0xFF, rl, gr, br]);
+            }
+        }
+    }
+
+}
+
 
 #[derive(Clone)]
 pub struct LCD {
     pub buffer: LCDBuffer,
     pub palette_idx: i16,
+    pub mode_3d_idx: i16,
 }
 
 impl LCD {
     pub fn new() -> Self {
         Self {
-            buffer: [0; LCD_BUFFER_SIZE],
+            buffer: LCDBuffer::new(),
             palette_idx: 0,
+            mode_3d_idx: 0,
         }
-    }
-
-    fn get_idx(x: u8, y: u8) -> usize {
-        (x as usize) + (y as usize) * LCDW
     }
 
     pub fn set_palette(&mut self, index: i16) {
         self.palette_idx = index.rem_euclid(palette::DMG_PALETTES.len() as i16);
+    }
+
+    pub fn set_3d_mode(&mut self, index: i16) {
+        self.mode_3d_idx = index.rem_euclid(3);
     }
 
     pub fn to_color_dmg(&self, val: u8, palette: u8) -> u32 {
@@ -55,12 +134,12 @@ impl LCD {
         (0xFF << 24) | (r8 as u32) << 16 | (g8 as u32) << 8 | (b8 as u32)
     }
 
-    pub fn w_dmg(&mut self, x: u8, y: u8, val: u8, palette: u8) {
-        self.buffer[LCD::get_idx(x, y)] = self.to_color_dmg(val, palette);
+    pub fn w_dmg(&mut self, x: u8, y: u8, val: u8, palette: u8, is_foreground: bool) {
+        self.buffer.w(x, y, self.to_color_dmg(val, palette), is_foreground);
     }
 
-    pub fn w_cgb(&mut self, x: u8, y: u8, val: u8, palette: &[u8]) {
-        self.buffer[LCD::get_idx(x, y)] = self.to_color_cgb(val, palette);
+    pub fn w_cgb(&mut self, x: u8, y: u8, val: u8, palette: &[u8], is_foreground: bool) {
+        self.buffer.w(x, y, self.to_color_cgb(val, palette), is_foreground);
     }
 
     pub fn w_rewind_symbol(&mut self) {
@@ -70,9 +149,18 @@ impl LCD {
             for y in 0..(size * 2) - 1 {
                 let x_start = if y < size { size - y - 1 } else { y - size + 1 };
                 for x in x_start..size {
-                    self.buffer[LCD::get_idx(px + x + (i * size), py + y)] = 0xffff0000;
+                    self.buffer.w(px + x + (i * size), py + y, 0xffff0000, true);
                 }
             }
+        }
+    }
+
+    pub fn postprocess(&mut self) {
+        match self.mode_3d_idx {
+            0 => (),
+            1 => self.buffer.draw_anaglyph_3d(2, 10),
+            2 => self.buffer.draw_drop_shadow(2, 2),
+            val => panic!("3D mode {} not supported", val),
         }
     }
 

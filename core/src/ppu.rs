@@ -244,9 +244,9 @@ impl PPU {
                         self.scanline_bg_pri[x as usize] = flags.bg_priority;
                         if self.cgb_mode {
                             let palette = PPU::rpalette(&self.bgpalette, flags.cgbp2, flags.cgbp1, flags.cgbp0);
-                            self.lcd.w_cgb(x as u8, self.ly, px, palette);
+                            self.lcd.w_cgb(x as u8, self.ly, px, palette, false);
                         } else {
-                            self.lcd.w_dmg(x as u8, self.ly, px, self.bgp);
+                            self.lcd.w_dmg(x as u8, self.ly, px, self.bgp, false);
                         }
                     }
                 }
@@ -267,9 +267,9 @@ impl PPU {
                         self.scanline_bg_pri[x as usize] = flags.bg_priority;
                         if self.cgb_mode {
                             let palette = PPU::rpalette(&self.bgpalette, flags.cgbp2, flags.cgbp1, flags.cgbp0);
-                            self.lcd.w_cgb(x as u8, self.ly, px, palette);
+                            self.lcd.w_cgb(x as u8, self.ly, px, palette, true);
                         } else {
-                            self.lcd.w_dmg(x as u8, self.ly, px, self.bgp);
+                            self.lcd.w_dmg(x as u8, self.ly, px, self.bgp, true);
                         }
                     }
                 }
@@ -315,9 +315,9 @@ impl PPU {
                         // Draw
                         if self.cgb_mode {
                             let palette = PPU::rpalette(&self.obpalette, flags.cgbp2, flags.cgbp1, flags.cgbp0);
-                            self.lcd.w_cgb(x as u8, self.ly, px, palette);
+                            self.lcd.w_cgb(x as u8, self.ly, px, palette, true);
                         } else {
-                            self.lcd.w_dmg(x as u8, self.ly, px, if flags.obp {self.obp1} else {self.obp0});
+                            self.lcd.w_dmg(x as u8, self.ly, px, if flags.obp {self.obp1} else {self.obp0}, true);
                         }
                     }
                 }
@@ -331,6 +331,7 @@ impl PPU {
         // Return frame to be drawn when the last scanline has been reached
         let frame = if self.ly >= LY_MAX {
             interrupts |= self.set_ly(0);
+            self.lcd.postprocess();
             Some(&self.lcd.buffer)
         } else {
             None

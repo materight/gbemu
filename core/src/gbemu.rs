@@ -68,6 +68,14 @@ impl GBEmu {
         self.cpu.mmu.ppu.lcd.set_palette(palette_idx);
     }
 
+    pub fn current_3d_mode(&self) -> i16 {
+        self.cpu.mmu.ppu.lcd.mode_3d_idx
+    }
+
+    pub fn set_3d_mode(&mut self, mode_idx: i16) {
+        self.cpu.mmu.ppu.lcd.set_3d_mode(mode_idx);
+    }
+
     pub fn rom_title(&self) -> String {
         self.cpu.mmu.mbc.title()
     }

@@ -121,7 +121,7 @@ pub fn start(rom: &[u8]) {
         };
 
         // Resize image to match scaled canvas
-        let frame_buffer = frame_buffer.unwrap().frame;
+        let frame_buffer = &frame_buffer.unwrap().frame;
         let mut img = vec![0; frame_buffer.len() * (SCALE * SCALE) * 4];
         for i in 0..frame_buffer.len() {
             let [_, r, g, b] = frame_buffer[i].to_be_bytes();

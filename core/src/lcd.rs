@@ -4,16 +4,16 @@ pub const LCD_BUFFER_SIZE: usize = LCDW * LCDH;
 
 #[derive(Clone)]
 pub struct LCDBuffer {
-    pub frame: [u32; LCD_BUFFER_SIZE],
-    pub background: [u32; LCD_BUFFER_SIZE],
-    pub foreground: [u32; LCD_BUFFER_SIZE],
+    pub frame: Vec<u32>,
+    background: Vec<u32>,
+    foreground: Vec<u32>,
 }
 impl LCDBuffer {
     pub fn new() -> Self {
         Self {
-            frame: [0; LCD_BUFFER_SIZE],
-            background: [0; LCD_BUFFER_SIZE],
-            foreground: [0; LCD_BUFFER_SIZE],
+            frame: vec![0; LCD_BUFFER_SIZE],
+            background: vec![0; LCD_BUFFER_SIZE],
+            foreground: vec![0; LCD_BUFFER_SIZE],
         }
     }
 

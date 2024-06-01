@@ -72,7 +72,7 @@ impl LCDBuffer {
                     0
                 };
                 let [_, rl, _, _] = pxl.to_be_bytes();
-                // Combine into one. TODO: check other algorithms: https://www.3dtv.at/knowhow/anaglyphcomparison_en.aspx
+                // Source: https://www.3dtv.at/knowhow/anaglyphcomparison_en.aspx
                 self.frame[idxr] = u32::from_be_bytes([0xFF, rl, gr, br]);
             }
         }
@@ -158,7 +158,7 @@ impl LCD {
     pub fn postprocess(&mut self) {
         match self.mode_3d_idx {
             0 => (),
-            1 => self.buffer.draw_anaglyph_3d(1, 5),
+            1 => self.buffer.draw_anaglyph_3d(2, 6),
             2 => self.buffer.draw_drop_shadow(2, 2),
             val => panic!("3D mode {} not supported", val),
         }

@@ -158,7 +158,7 @@ impl LCD {
     pub fn postprocess(&mut self) {
         match self.mode_3d_idx {
             0 => (),
-            1 => self.buffer.draw_anaglyph_3d(2, 10),
+            1 => self.buffer.draw_anaglyph_3d(1, 5),
             2 => self.buffer.draw_drop_shadow(2, 2),
             val => panic!("3D mode {} not supported", val),
         }

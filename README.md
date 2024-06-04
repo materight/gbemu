@@ -1,5 +1,5 @@
 # gbemu
-A Nintendo Game Boy emulator written in Rust with WebAssembly support. Features include multiple palettes, time rewind, and anaglyph 3D mode.
+A Nintendo Game Boy Color emulator written in Rust with WebAssembly support. Features include multiple palettes, time rewind, and anaglyph 3D mode.
 
 Try it out at [materight.github.io/gbemu](https://materight.github.io/gbemu/) or run `cargo run` for the desktop version.
 

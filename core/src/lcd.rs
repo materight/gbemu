@@ -17,7 +17,7 @@ impl LCDBuffer {
         }
     }
 
-    fn to_idx(x: u8, y: u8) -> usize {
+    pub fn to_idx(x: u8, y: u8) -> usize {
         return (x as usize) + (y as usize) * LCDW;
     }
 

@@ -95,6 +95,7 @@ fn main() {
             select: window.is_key_down(Key::Backspace),
         };
 
+        // Run emulator step, i.e. execute next opcode
         let frame_buffer = if window.is_key_down(Key::R) && emulator.can_rewind() {
             // Rewind to last state
             emulator.rewind()

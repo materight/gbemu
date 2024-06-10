@@ -1,0 +1,12 @@
+[package]
+name = "terminal"
+version = "0.1.0"
+edition = "2021"
+authors = ["materight"]
+
+[dependencies]
+gb-core = { path = "../core" }
+
+clap = { version = "4.5.1", features = ["derive"] }
+console_engine = "2.6.1"
+device_query = "2.1.0"

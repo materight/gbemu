@@ -1,3 +1,4 @@
+use ansi_colours::ansi256_from_rgb;
 use clap::Parser;
 use console_engine::{ConsoleEngine, Color, pixel};
 use device_query::{DeviceQuery, DeviceState, Keycode};
@@ -12,6 +13,10 @@ struct Args {
     /// ROM path (.gb/.gbc)
     #[arg(short, long)]
     file: String,
+
+    /// Convert colors to ANSI value (8bpp), in case the terminal does not support true colors (24bpp)
+    #[arg(long, action)]
+    ansi: bool,
 
     /// Force games to run in DMG (Non-Color GB)
     #[arg(long, action)]
@@ -82,11 +87,12 @@ fn main() {
                     let idxl =  lcd::LCDBuffer::to_idx(x as u8, y as u8 * 2 + 1);
                     let [_, rh, gh, bh] = frame_buffer.frame[idxh].to_be_bytes();
                     let [_, rl, gl, bl] = frame_buffer.frame[idxl].to_be_bytes();
-                    engine.set_pxl(x, y, pixel::pxl_fbg(
-                        '▄',
-                        Color::Rgb { r: rl, g: gl, b: bl },
-                        Color::Rgb { r: rh, g: gh, b: bh },
-                    ));
+                    let (bg_color, fg_color) = if !args.ansi {
+                        (Color::Rgb { r: rh, g: gh, b: bh }, Color::Rgb { r: rl, g: gl, b: bl })
+                    } else {
+                        (Color::AnsiValue(ansi256_from_rgb((rh, gh, bh))), Color::AnsiValue(ansi256_from_rgb((rl, gl, bl))))
+                    };
+                    engine.set_pxl(x, y, pixel::pxl_fbg('▄', fg_color, bg_color));
                 }
             }
             engine.print(0, lcd::LCDH as i32 / 2, controls_help);

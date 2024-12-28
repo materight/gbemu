@@ -82,7 +82,7 @@ impl MMU {
             0xFF80..=0xFFFE /*  HRAM  */ => self.hram[(addr - 0xFF80) as usize],
             0xFFFF          /*   IE   */ => self.IE,
 
-            0xFF03 | 0xFF08..=0xFF0E | 0xFF6D..=0xFF7F /* Unused */=> 0xFF, 
+            0xFF03 | 0xFF08..=0xFF0E | 0xFF6D..=0xFF7F /* Unused */=> 0xFF,
         }
     }
 
@@ -113,7 +113,7 @@ impl MMU {
             0xFF80..=0xFFFE /*  HRAM  */ => self.hram[(addr - 0xFF80) as usize] = val,
             0xFFFF          /*   IE   */ => self.IE = val,
 
-            0xFF03 | 0xFF08..=0xFF0E | 0xFF6D..=0xFF7F /* Unused */=> (), 
+            0xFF03 | 0xFF08..=0xFF0E | 0xFF6D..=0xFF7F /* Unused */=> (),
         }
     }
 

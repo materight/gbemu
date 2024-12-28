@@ -121,21 +121,11 @@ pub fn start(rom: &[u8]) {
         };
 
         // Resize image to match scaled canvas
-        let frame_buffer = &frame_buffer.unwrap().frame;
-        let mut img = vec![0; frame_buffer.len() * (SCALE * SCALE) * 4];
-        for i in 0..frame_buffer.len() {
-            let [_, r, g, b] = frame_buffer[i].to_be_bytes();
-            let (fx, fy) =  (i % lcd::LCDW * SCALE, i / lcd::LCDW * SCALE);
-            for x in 0..SCALE {
-                for y in 0..SCALE {
-                    let idx = fx + x + (fy + y) * lcdw;
-                    img[idx * 4..][..4].copy_from_slice(&[r, g, b, 0xFF]);
-                }
-            }
-        }
+        let mut buffer = vec![0; lcdw * lcdh * 4];
+        frame_buffer.unwrap().write_frame(&mut buffer, SCALE);
 
         // Convert to ImageData and push to canvas
-        let image_data = ImageData::new_with_u8_clamped_array_and_sh(Clamped(&img), lcdw as u32, lcdh as u32).unwrap();
+        let image_data = ImageData::new_with_u8_clamped_array_and_sh(Clamped(&buffer), lcdw as u32, lcdh as u32).unwrap();
         context.put_image_data(&image_data, 0.0, 0.0).unwrap();
 
         // Save RAM content to file every 60 frames (~1s)

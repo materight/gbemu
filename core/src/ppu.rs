@@ -166,8 +166,8 @@ impl PPU {
         ((tile >> ((7 - index) * 2)) & 0x03) as u8
     }
 
-    fn rpalette(palette: &[u8], addr2: bool, addr1: bool, addr0: bool) -> &[u8] {
-        let addr = 8 * ((addr2 as u8) << 2 | (addr1 as u8) << 1 | addr0 as u8) as usize;
+    fn rpalette(palette: &[u8], addr: u8) -> &[u8] {
+        let addr = 8 * addr as usize;
         &palette[addr..addr + 8]
     }
 
@@ -243,7 +243,8 @@ impl PPU {
                         self.scanline_bg_colors[x as usize] = px;
                         self.scanline_bg_pri[x as usize] = flags.bg_priority;
                         if self.cgb_mode {
-                            let palette = PPU::rpalette(&self.bgpalette, flags.cgbp2, flags.cgbp1, flags.cgbp0);
+                            let cgbp = BGFlags::pack(&[flags.cgbp2, flags.cgbp1, flags.cgbp0]);
+                            let palette = PPU::rpalette(&self.bgpalette, cgbp);
                             self.lcd.w_cgb(x as u8, self.ly, px, palette, false);
                         } else {
                             self.lcd.w_dmg(x as u8, self.ly, px, self.bgp, false);
@@ -266,7 +267,8 @@ impl PPU {
                         self.scanline_bg_colors[x as usize] = px;
                         self.scanline_bg_pri[x as usize] = flags.bg_priority;
                         if self.cgb_mode {
-                            let palette = PPU::rpalette(&self.bgpalette, flags.cgbp2, flags.cgbp1, flags.cgbp0);
+                            let cgbp = BGFlags::pack(&[flags.cgbp2, flags.cgbp1, flags.cgbp0]);
+                            let palette = PPU::rpalette(&self.bgpalette, cgbp);
                             self.lcd.w_cgb(x as u8, self.ly, px, palette, true);
                         } else {
                             self.lcd.w_dmg(x as u8, self.ly, px, self.bgp, true);
@@ -314,7 +316,8 @@ impl PPU {
                         if px == 0 || bg_has_priority { continue }
                         // Draw
                         if self.cgb_mode {
-                            let palette = PPU::rpalette(&self.obpalette, flags.cgbp2, flags.cgbp1, flags.cgbp0);
+                            let cgbp = OBJFlags::pack(&[flags.cgbp2, flags.cgbp1, flags.cgbp0]);
+                            let palette = PPU::rpalette(&self.obpalette, cgbp);
                             self.lcd.w_cgb(x as u8, self.ly, px, palette, true);
                         } else {
                             self.lcd.w_dmg(x as u8, self.ly, px, if flags.obp {self.obp1} else {self.obp0}, true);

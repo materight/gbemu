@@ -78,6 +78,22 @@ impl LCDBuffer {
         }
     }
 
+    pub fn write_frame(&self, buffer: &mut [u8], scale: usize) {
+        for i in 0..self.frame.len() {
+            let [_, r, g, b] = self.frame[i].to_be_bytes();
+            let (fx, fy) =  (i % LCDW * scale, i / LCDW * scale);
+            for x in 0..scale {
+                for y in 0..scale {
+                    let idx = fx + x + (fy + y) * LCDW * scale;
+                    buffer[idx * 4 + 0] = r;
+                    buffer[idx * 4 + 1] = g;
+                    buffer[idx * 4 + 2] = b;
+                    buffer[idx * 4 + 3] = 0xFF;
+                }
+            }
+        }
+    }
+
 }
 
 

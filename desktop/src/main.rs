@@ -1,8 +1,9 @@
 use std::{fs, path::Path};
-use std::time::Duration;
 use clap::Parser;
 use gb_core::debug;
-use minifb::{clamp, Key, KeyRepeat, Scale, Window, WindowOptions};
+use sdl2::pixels::PixelFormatEnum;
+use sdl2::event::Event;
+use sdl2::keyboard::{Keycode, Mod};
 
 use gb_core::{GBEmu, Joypad, lcd};
 
@@ -16,7 +17,7 @@ struct Args {
 
     /// Scale of the diplay
     #[arg(short, long, default_value_t = 4)]
-    scale: u8,
+    scale: u32,
 
     /// Force games to run in DMG (Non-Color GB)
     #[arg(long, action)]
@@ -31,10 +32,6 @@ struct Args {
     debug: bool,
 }
 
-fn set_emulation_speed(window: &mut Window, speed: f32) {
-    window.limit_update_rate(Some(Duration::from_micros((16742 as f32 / speed) as u64)));
-}
-
 
 fn main() {
     let args = Args::parse();
@@ -42,11 +39,6 @@ fn main() {
     let filepath = Path::new(&args.file);
     let rom = fs::read(filepath).expect("ROM not found");
     let mut emulator = GBEmu::new(&rom, args.force_dmg);
-    let topmost = false;
-    let scale = match args.scale {
-        1 => Scale::X1, 2 => Scale::X2, 4 => Scale::X4, 8 => Scale::X8,
-        _ => panic!("Unsupported scale: x{}", args.scale)
-    };
 
     // Load savefile if present
     let savepath = filepath.with_file_name(format!(".{}.sav", filepath.file_name().unwrap().to_string_lossy()));
@@ -55,48 +47,62 @@ fn main() {
         Err(_) => println!("Could not find save file")
     }
 
-    // Setup tilemap window
-    let mut tile_window = if args.tiles {
-        Some(Window::new(
-            "TILES",
-            debug::TILEW, debug::TILEH,
-            WindowOptions { scale: Scale::X2, topmost: topmost, ..Default::default() },
-        ).unwrap())
-    } else { None };
-
     // Setup output window
-    let mut speed = 1.0;
-    let mut paused = false;
-    let mut window = Window::new(
-        emulator.rom_title().as_str(),
-        lcd::LCDW, lcd::LCDH,
-        WindowOptions { scale: scale, topmost: topmost, ..Default::default() },
-    ).unwrap();
-    set_emulation_speed(&mut window, speed);
+    let (lcdw, lcdh) = (args.scale * lcd::LCDW as u32, args.scale * lcd::LCDH as u32);
+    let sdl_context = sdl2::init().unwrap();
+    let video_subsystem = sdl_context.video().unwrap();
+    let mut event_pump = sdl_context.event_pump().unwrap();
+
+    let mut canvas = video_subsystem
+        .window(emulator.rom_title().as_str(), lcdw, lcdh)
+        .position_centered()
+        .opengl()
+        .build()
+        .unwrap()
+        .into_canvas()
+        .accelerated()
+        .present_vsync()
+        .build()
+        .unwrap();
+
+    let texture_creator = canvas.texture_creator();
+    let mut texture = texture_creator
+        .create_texture_streaming(PixelFormatEnum::ABGR8888, lcdw, lcdh)
+        .unwrap();
+
+    // Setup tilemap window
+    let mut tile_canvas = video_subsystem
+        .window("TILES", debug::TILEW as u32, debug::TILEH as u32)
+        .opengl()
+        .hidden()
+        .build()
+        .unwrap()
+        .into_canvas()
+        .accelerated()
+        .present_vsync()
+        .build()
+        .unwrap();
+
+    let tile_texture_creator = tile_canvas.texture_creator();
+    let mut tile_texture = tile_texture_creator
+        .create_texture_streaming(PixelFormatEnum::ABGR8888, debug::TILEW as u32, debug::TILEH as u32)
+        .unwrap();
+
+    if args.tiles {
+        tile_canvas.window_mut().show();
+        canvas.window_mut().raise();
+    }
 
     // Start emulation loop
+    let mut running = true;
+    let mut rewinding = false;
+    let mut joypad = Joypad::default();
+    let mut speed: u64 = 1;
     let mut frame_count: u64 = 0;
-    while window.is_open() && !window.is_key_down(Key::Escape) {
-        if paused {
-            window.update();
-            if window.is_key_pressed(Key::Space, KeyRepeat::No) { paused = false }
-            else { continue }
-        }
-
-        // Retrieve current pressed keys 
-        let joypad = Joypad {
-            a: window.is_key_down(Key::A),
-            b: window.is_key_down(Key::S),
-            up: window.is_key_down(Key::Up),
-            down: window.is_key_down(Key::Down),
-            left: window.is_key_down(Key::Left),
-            right: window.is_key_down(Key::Right),
-            start: window.is_key_down(Key::Enter),
-            select: window.is_key_down(Key::Backspace),
-        };
+    while running {
 
         // Run emulator step, i.e. execute next opcode
-        let frame_buffer = if window.is_key_down(Key::R) && emulator.can_rewind() {
+        let frame_buffer = if rewinding && emulator.can_rewind() {
             // Rewind to last state
             emulator.rewind()
         } else {
@@ -108,33 +114,64 @@ fn main() {
         if let Some(frame_buffer) = frame_buffer {
             frame_count += 1;
 
-            // Write frame to buffer
-            window.update_with_buffer(&frame_buffer.frame, lcd::LCDW, lcd::LCDH).unwrap();
+            // Skip frames based on speed
+            if frame_count % speed == 0 {
+                // Write frame to buffer
+                texture.with_lock(None, |buffer: &mut [u8], _| {
+                    frame_buffer.write_frame(buffer, args.scale as usize)
+                }).unwrap();
+                canvas.copy(&texture, None, None).unwrap();
+                canvas.present();
 
-            // Write tiles
-            if let Some(wnd) = &mut tile_window {
-                (*wnd).update_with_buffer(&emulator.draw_tilemap(), debug::TILEW, debug::TILEH).unwrap();
+                // Write tiles
+                if args.tiles {
+                    let tilemap = emulator.draw_tilemap();
+                    tile_texture.update(None, &tilemap, debug::TILEW * 4).unwrap();
+                    tile_canvas.copy(&tile_texture, None, None).unwrap();
+                    tile_canvas.present();
+                }
             }
 
-            // Handle shortcuts
-            if window.is_key_pressed(Key::Space, KeyRepeat::No) { paused = true }
-            if window.is_key_released(Key::Equal) { speed *= 2.0 }
-            if window.is_key_released(Key::Minus) { speed /= 2.0 }
-            if window.is_key_released(Key::Tab) {
-                let new_palette_idx = emulator.current_palette() + if !window.is_key_down(Key::LeftShift) { 1 } else { -1 }; 
-                emulator.set_palette(new_palette_idx);
+            // Handle key events
+            for event in event_pump.poll_iter() {
+                match event {
+                    // Shortcuts
+                    Event::Quit { .. } | Event::KeyUp { keycode: Some(Keycode::Escape), .. } => running = false,
+                    Event::KeyDown { keycode: Some(Keycode::R), repeat: false, ..} => rewinding = true,
+                    Event::KeyUp { keycode: Some(Keycode::R), repeat: false, ..} => rewinding = false,
+                    Event::KeyUp { keycode: Some(Keycode::Equals), .. } if speed < 32 => speed *= 2,
+                    Event::KeyUp { keycode: Some(Keycode::Minus), .. } if speed > 1 => speed /= 2,
+                    Event::KeyUp { keycode: Some(Keycode::Tab), keymod: Mod::NOMOD, .. } => emulator.set_palette(emulator.current_palette() + 1),
+                    Event::KeyUp { keycode: Some(Keycode::Tab), keymod: Mod::LSHIFTMOD, .. } => emulator.set_palette(emulator.current_palette() - 1),
+                    Event::KeyUp { keycode: Some(Keycode::P), keymod: Mod::NOMOD, .. } => emulator.set_3d_mode(emulator.current_3d_mode() + 1),
+                    Event::KeyUp { keycode: Some(Keycode::P), keymod: Mod::LSHIFTMOD, .. } => emulator.set_3d_mode(emulator.current_3d_mode() - 1),
+                    // Joypad
+                    Event::KeyDown { keycode: Some(Keycode::A), repeat: false, .. } => joypad.a = true,
+                    Event::KeyUp { keycode: Some(Keycode::A), repeat: false, .. } => joypad.a = false,
+                    Event::KeyDown { keycode: Some(Keycode::S), repeat: false, .. } => joypad.b = true,
+                    Event::KeyUp { keycode: Some(Keycode::S), repeat: false, .. } => joypad.b = false,
+                    Event::KeyDown { keycode: Some(Keycode::Up), repeat: false,.. } => joypad.up = true,
+                    Event::KeyUp { keycode: Some(Keycode::Up), repeat: false,.. } => joypad.up = false,
+                    Event::KeyDown { keycode: Some(Keycode::Down), repeat: false,.. } => joypad.down = true,
+                    Event::KeyUp { keycode: Some(Keycode::Down), repeat: false,.. } => joypad.down = false,
+                    Event::KeyDown { keycode: Some(Keycode::Left), repeat: false,.. } => joypad.left = true,
+                    Event::KeyUp { keycode: Some(Keycode::Left), repeat: false,.. } => joypad.left = false,
+                    Event::KeyDown { keycode: Some(Keycode::Right), repeat: false, .. } => joypad.right = true,
+                    Event::KeyUp { keycode: Some(Keycode::Right), repeat: false, .. } => joypad.right = false,
+                    Event::KeyDown { keycode: Some(Keycode::Return), repeat: false, .. } => joypad.start = true,
+                    Event::KeyUp { keycode: Some(Keycode::Return), repeat: false, .. } => joypad.start = false,
+                    Event::KeyDown { keycode: Some(Keycode::Backspace), repeat: false, .. } => joypad.select = true,
+                    Event::KeyUp { keycode: Some(Keycode::Backspace), repeat: false, .. } => joypad.select = false,
+                    _ => {}
+                }
             }
-            if window.is_key_released(Key::P) {
-                let new_3d_mode_idx = emulator.current_3d_mode() + if !window.is_key_down(Key::LeftShift) { 1 } else { -1 }; 
-                emulator.set_3d_mode(new_3d_mode_idx);
-            }
-            speed = clamp(1.0, speed, 256.0);
-            set_emulation_speed(&mut window, speed);
 
             // Save RAM content to file every 60 frames (~1s)
             if frame_count % 60 == 0 {
-                fs::write(savepath.clone(), emulator.save()).unwrap();
+                let save_data = emulator.save();
+                fs::write(savepath.clone(), save_data).unwrap();
             }
+
         }
     }
 }

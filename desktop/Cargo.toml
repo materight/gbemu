@@ -8,4 +8,4 @@ authors = ["materight"]
 gb-core = { path = "../core" }
 
 clap = { version = "4.5.1", features = ["derive"] }
-minifb = "0.25"
+sdl2 = "0.37.0"

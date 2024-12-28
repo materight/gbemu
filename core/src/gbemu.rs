@@ -56,7 +56,7 @@ impl GBEmu {
         }
     }
 
-    pub fn draw_tilemap(&self) -> Vec<u32> {
+    pub fn draw_tilemap(&self) -> Vec<u8> {
         debug::draw_tilemap(&self.cpu.mmu.ppu)
     }
 

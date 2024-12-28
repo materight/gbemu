@@ -1,11 +1,10 @@
 use ansi_colours::ansi256_from_rgb;
 use clap::Parser;
-use console_engine::{ConsoleEngine, Color, pixel};
+use console_engine::{pixel, Color, ConsoleEngine};
 use device_query::{DeviceQuery, DeviceState, Keycode};
 use std::{fs, path::Path};
 
-use gb_core::{GBEmu, Joypad, lcd};
-
+use gb_core::{lcd, GBEmu, Joypad};
 
 #[derive(Parser)]
 #[command(about = "A simple Gameboy emulator written in Rust")]
@@ -35,7 +34,7 @@ fn main() {
     let savepath = filepath.with_file_name(format!(".{}.sav", filepath.file_name().unwrap().to_string_lossy()));
     match fs::read(savepath.clone()) {
         Ok(savefile) => emulator.load_save(&savefile),
-        Err(_) => println!("Could not find save file")
+        Err(_) => println!("Could not find save file"),
     }
 
     // Setup output canvas
@@ -51,8 +50,7 @@ fn main() {
     // Start emulation loop
     let mut frame_count: u64 = 0;
     loop {
-
-        // Retrieve current pressed keys 
+        // Retrieve current pressed keys
         let keys: Vec<Keycode> = device_state.get_keys();
         let joypad = Joypad {
             a: keys.contains(&Keycode::A),
@@ -83,14 +81,17 @@ fn main() {
             // Draw frame to console buffer
             for x in 0..(lcd::LCDW as i32) {
                 for y in 0..(lcd::LCDH as i32 / 2) {
-                    let idxh =  lcd::LCDBuffer::to_idx(x as u8, y as u8 * 2);
-                    let idxl =  lcd::LCDBuffer::to_idx(x as u8, y as u8 * 2 + 1);
+                    let idxh = lcd::LCDBuffer::to_idx(x as u8, y as u8 * 2);
+                    let idxl = lcd::LCDBuffer::to_idx(x as u8, y as u8 * 2 + 1);
                     let [_, rh, gh, bh] = frame_buffer.frame[idxh].to_be_bytes();
                     let [_, rl, gl, bl] = frame_buffer.frame[idxl].to_be_bytes();
                     let (bg_color, fg_color) = if !args.ansi {
                         (Color::Rgb { r: rh, g: gh, b: bh }, Color::Rgb { r: rl, g: gl, b: bl })
                     } else {
-                        (Color::AnsiValue(ansi256_from_rgb((rh, gh, bh))), Color::AnsiValue(ansi256_from_rgb((rl, gl, bl))))
+                        (
+                            Color::AnsiValue(ansi256_from_rgb((rh, gh, bh))),
+                            Color::AnsiValue(ansi256_from_rgb((rl, gl, bl))),
+                        )
                     };
                     engine.set_pxl(x, y, pixel::pxl_fbg('▄', fg_color, bg_color));
                 }
@@ -99,9 +100,15 @@ fn main() {
             engine.draw();
 
             // Handle shortcuts
-            if engine.is_key_pressed(console_engine::KeyCode::Esc) { break }
-            if engine.is_key_pressed(console_engine::KeyCode::Tab) { emulator.set_palette(emulator.current_palette() + 1) }
-            if engine.is_key_pressed(console_engine::KeyCode::Char('p')) { emulator.set_3d_mode(emulator.current_3d_mode() + 1) }
+            if engine.is_key_pressed(console_engine::KeyCode::Esc) {
+                break;
+            }
+            if engine.is_key_pressed(console_engine::KeyCode::Tab) {
+                emulator.set_palette(emulator.current_palette() + 1)
+            }
+            if engine.is_key_pressed(console_engine::KeyCode::Char('p')) {
+                emulator.set_3d_mode(emulator.current_3d_mode() + 1)
+            }
 
             // Save RAM content to file every 60 frames (~1s)
             if frame_count % 60 == 0 {

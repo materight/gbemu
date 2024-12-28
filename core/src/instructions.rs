@@ -1,4 +1,4 @@
-use crate::registers::{R8, R16, CC};
+use crate::registers::{CC, R16, R8};
 
 /*
  OP codes source: https://gbdev.io/pandocs/CPU_Instruction_Set.html
@@ -10,8 +10,7 @@ pub const ADDR_R16: [R16; 4] = [R16::BC, R16::DE, R16::HL, R16::SP];
 pub const ADDR_R16_STK: [R16; 4] = [R16::BC, R16::DE, R16::HL, R16::AF];
 pub const ADDR_R16_MEM: [R16; 2] = [R16::BC, R16::DE];
 pub const ADDR_CC: [CC; 4] = [CC::NZ, CC::Z, CC::NC, CC::C];
-pub const ADDR_3: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];  // General 3bit address
-
+pub const ADDR_3: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7]; // General 3bit address
 
 #[allow(non_camel_case_types)]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -118,9 +117,9 @@ pub enum Op {
     CB_SET_R8(u8, R8),
 }
 
-
 pub type Instruction = (Op, u8, u8);
 
+#[rustfmt::skip]
 macro_rules! add_cycles {
     ($inst:expr, $reg:expr) => {
         if format!("{:?}", $reg) == "HL" {
@@ -131,6 +130,7 @@ macro_rules! add_cycles {
     };
 }
 
+#[rustfmt::skip]
 macro_rules! set_op {
     ($op:expr, $code:expr, $inst:ident, $extra_bytes:expr, $cycles:expr) => {
         assert!(matches!($op[$code].0, Op::INVALID) || matches!($op[$code].0, Op::LD_R8_R8(R8::HL, R8::HL)), "Op at {:#04x} already set to {:?}", $code, $op[$code].0);
@@ -157,8 +157,7 @@ macro_rules! set_op {
 pub const OPMAP_SIZE: usize = 256;
 
 pub fn load_opmaps() -> ([Instruction; OPMAP_SIZE], [Instruction; OPMAP_SIZE]) {
-
-    let mut op =  [(Op::INVALID, 0, 0); OPMAP_SIZE];
+    let mut op = [(Op::INVALID, 0, 0); OPMAP_SIZE];
 
     // Block 0
     set_op!(op, 0x00, NOP, 0, 1);
@@ -194,7 +193,7 @@ pub fn load_opmaps() -> ([Instruction; OPMAP_SIZE], [Instruction; OPMAP_SIZE]) {
     // Block 1
     set_op!(op, 0x40, LD_R8_R8, 0, 1, ADDR_R8, 3, ADDR_R8, 0);
     set_op!(op, 0x76, HALT, 0, 0);
-    
+
     // Block 2
     set_op!(op, 0x80, ADD_A_R8, 0, 1, ADDR_R8, 0);
     set_op!(op, 0x88, ADC_A_R8, 0, 1, ADDR_R8, 0);
@@ -244,9 +243,8 @@ pub fn load_opmaps() -> ([Instruction; OPMAP_SIZE], [Instruction; OPMAP_SIZE]) {
     set_op!(op, 0xF3, DI, 0, 1);
     set_op!(op, 0xFB, EI, 0, 1);
 
-
     // Initialize lookup table for CB-prefixed instructions
-    let mut cb_op =  [(Op::INVALID, 0, 0); OPMAP_SIZE];
+    let mut cb_op = [(Op::INVALID, 0, 0); OPMAP_SIZE];
 
     set_op!(cb_op, 0x00, CB_RLC_R8, 0, 1, ADDR_R8, 0);
     set_op!(cb_op, 0x08, CB_RRC_R8, 0, 1, ADDR_R8, 0);
@@ -263,9 +261,6 @@ pub fn load_opmaps() -> ([Instruction; OPMAP_SIZE], [Instruction; OPMAP_SIZE]) {
 
     (op, cb_op)
 }
-
-
-
 
 #[cfg(test)]
 mod test {
@@ -305,4 +300,3 @@ mod test {
         assert_eq!(op_invalid, expected_op_invalid);
     }
 }
-

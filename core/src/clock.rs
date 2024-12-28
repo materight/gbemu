@@ -11,7 +11,15 @@ pub struct Clock {
 }
 
 impl Clock {
-    pub fn new() -> Self { Self {sysclock: 0, prev_edge_bit: false, tima: 0, tma: 0, tac: 0} }
+    pub fn new() -> Self {
+        Self {
+            sysclock: 0,
+            prev_edge_bit: false,
+            tima: 0,
+            tma: 0,
+            tac: 0,
+        }
+    }
 
     pub fn div(&self) -> u8 {
         (self.sysclock >> 8) as u8
@@ -41,7 +49,10 @@ impl Clock {
         let mut interrupts = 0;
         let tima_enabled = self.tac & 0x04 != 0;
         let tima_bit = match self.tac & 0x03 {
-            0x00 => 1024 / 2, 0x01 => 16 / 2, 0x02 => 64 / 2, 0x03 => 256 / 2,
+            0x00 => 1024 / 2,
+            0x01 => 16 / 2,
+            0x02 => 64 / 2,
+            0x03 => 256 / 2,
             v => panic!("TAC {:#04x} unsupported", v),
         };
         for _ in 0..elapsed_ticks {

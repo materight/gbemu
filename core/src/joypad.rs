@@ -1,4 +1,3 @@
-
 #[derive(Default, Clone, Copy)]
 pub struct Joypad {
     // Buttons status, 1 = pressed
@@ -9,11 +8,10 @@ pub struct Joypad {
     pub left: bool,
     pub right: bool,
     pub start: bool,
-    pub select: bool
+    pub select: bool,
 }
 
 impl Joypad {
-
     pub fn get(&self, joyp: u8) -> u8 {
         let joyp = joyp & 0x20; // Zero-out other values
         joyp | if joyp & 0x20 == 0 {
@@ -26,5 +24,4 @@ impl Joypad {
             0x0F
         }
     }
-
 }

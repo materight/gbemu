@@ -1,18 +1,37 @@
-use std::convert::{From, Into};
-use crate::utils::{Get, Set, byte_register};
 use crate::cpu::CPU;
-
+use crate::utils::{byte_register, Get, Set};
+use std::convert::{From, Into};
 
 // Internal registers representations
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum R8 { B, C, D, E, H, L, HL, A, }
+pub enum R8 {
+    B,
+    C,
+    D,
+    E,
+    H,
+    L,
+    HL,
+    A,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum R16 { BC, DE, HL, AF, SP, PC }
+pub enum R16 {
+    BC,
+    DE,
+    HL,
+    AF,
+    SP,
+    PC,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum CC { NZ, Z, NC, C }
-
+pub enum CC {
+    NZ,
+    Z,
+    NC,
+    C,
+}
 
 #[derive(Copy, Clone)]
 pub struct Registers {
@@ -31,7 +50,18 @@ pub struct Registers {
 impl Registers {
     pub fn new() -> Self {
         // Set status after boot sequence as default (except for PC)
-        Self { a: 0x01, b: 0xFF, c: 0x13, d: 0x00, e: 0xC1, f: FlagsRegister::from(0), h: 0x84, l: 0x03, sp: 0xFFFE, pc: 0x0000 }
+        Self {
+            a: 0x01,
+            b: 0xFF,
+            c: 0x13,
+            d: 0x00,
+            e: 0xC1,
+            f: FlagsRegister::from(0),
+            h: 0x84,
+            l: 0x03,
+            sp: 0xFFFE,
+            pc: 0x0000,
+        }
     }
 }
 
@@ -39,9 +69,8 @@ byte_register!(FlagsRegister {
     z, // Zero
     n, // Substraction
     h, // Half carry
-    c // Carry
+    c  // Carry
 });
-
 
 impl Get<R8, u8> for CPU {
     fn r(&self, r: R8) -> u8 {
@@ -53,7 +82,7 @@ impl Get<R8, u8> for CPU {
             R8::H => self.reg.h,
             R8::HL => self.mmu.r(u16::from_be_bytes([self.reg.h, self.reg.l])),
             R8::L => self.reg.l,
-            R8::A=> self.reg.a,
+            R8::A => self.reg.a,
         }
     }
 }
@@ -68,11 +97,10 @@ impl Set<R8, u8> for CPU {
             R8::H => self.reg.h = val,
             R8::HL => self.mmu.w(u16::from_be_bytes([self.reg.h, self.reg.l]), val),
             R8::L => self.reg.l = val,
-            R8::A=> self.reg.a = val,
+            R8::A => self.reg.a = val,
         }
     }
 }
-
 
 impl Get<R16, u16> for CPU {
     fn r(&self, r: R16) -> u16 {
@@ -93,13 +121,16 @@ impl Set<R16, u16> for CPU {
             R16::BC => [self.reg.b, self.reg.c] = val.to_be_bytes(),
             R16::DE => [self.reg.d, self.reg.e] = val.to_be_bytes(),
             R16::HL => [self.reg.h, self.reg.l] = val.to_be_bytes(),
-            R16::AF => { let [a, f] = val.to_be_bytes(); self.reg.a = a; self.reg.f = f.into(); },
+            R16::AF => {
+                let [a, f] = val.to_be_bytes();
+                self.reg.a = a;
+                self.reg.f = f.into();
+            }
             R16::SP => self.reg.sp = val,
             R16::PC => self.reg.pc = val,
         }
     }
 }
-
 
 impl Get<CC, bool> for CPU {
     fn r(&self, cc: CC) -> bool {

@@ -22,7 +22,7 @@ impl LCDBuffer {
     }
 
     fn w(&mut self, x: u8, y: u8, color: u32, is_foreground: bool) {
-        let idx =  LCDBuffer::to_idx(x, y);
+        let idx = LCDBuffer::to_idx(x, y);
         self.frame[idx] = color;
         if is_foreground {
             self.foreground[idx] = color;
@@ -35,7 +35,7 @@ impl LCDBuffer {
     fn draw_drop_shadow(&mut self, offset_x: i16, offset_y: i16) {
         for x in 0..(LCDW as i16) {
             for y in 0..(LCDH as i16) {
-                let idx =  LCDBuffer::to_idx(x as u8, y as u8);
+                let idx = LCDBuffer::to_idx(x as u8, y as u8);
                 if self.foreground[idx] != 0 {
                     self.frame[idx] = self.foreground[idx];
                 } else {
@@ -57,12 +57,16 @@ impl LCDBuffer {
         for xr in 0..(LCDW as u8) {
             for y in 0..(LCDH as u8) {
                 // Retrieve right pixel from original frame
-                let idxr: usize =  LCDBuffer::to_idx(xr as u8, y as u8);
-                let pxr = if self.foreground[idxr] != 0 { self.foreground[idxr] } else { self.background[idxr] };
+                let idxr: usize = LCDBuffer::to_idx(xr as u8, y as u8);
+                let pxr = if self.foreground[idxr] != 0 {
+                    self.foreground[idxr]
+                } else {
+                    self.background[idxr]
+                };
                 let [_, _, gr, br] = pxr.to_be_bytes();
                 // Retrieve left pixel with a different displacement for foreground and background
-                let (xl_bg, xl_fg) = (xr + offset_background,  xr + offset_foreground);
-                let idxl_fg: usize =  LCDBuffer::to_idx(xl_fg as u8, y as u8);
+                let (xl_bg, xl_fg) = (xr + offset_background, xr + offset_foreground);
+                let idxl_fg: usize = LCDBuffer::to_idx(xl_fg as u8, y as u8);
                 let pxl = if xl_fg < LCDW as u8 && self.foreground[idxl_fg] != 0 {
                     self.foreground[idxl_fg]
                 } else if xl_bg < LCDW as u8 {
@@ -81,7 +85,7 @@ impl LCDBuffer {
     pub fn write_frame(&self, buffer: &mut [u8], scale: usize) {
         for i in 0..self.frame.len() {
             let [_, r, g, b] = self.frame[i].to_be_bytes();
-            let (fx, fy) =  (i % LCDW * scale, i / LCDW * scale);
+            let (fx, fy) = (i % LCDW * scale, i / LCDW * scale);
             for x in 0..scale {
                 for y in 0..scale {
                     let idx = fx + x + (fy + y) * LCDW * scale;
@@ -93,9 +97,7 @@ impl LCDBuffer {
             }
         }
     }
-
 }
-
 
 #[derive(Clone)]
 pub struct LCD {
@@ -127,26 +129,26 @@ impl LCD {
             1 => (palette & 0x0C) >> 2,
             2 => (palette & 0x30) >> 4,
             3 => (palette & 0xC0) >> 6,
-            _ => panic!("Color ID {} not supported", val)
+            _ => panic!("Color ID {} not supported", val),
         };
         palette::DMG_PALETTES[self.palette_idx as usize].1[color_idx as usize]
     }
 
     pub fn to_color_cgb(&self, val: u8, palette: &[u8]) -> u32 {
         // Get 15bit color from palette
-        let color15 =  match val {
+        let color15 = match val {
             0 => u16::from_le_bytes([palette[0], palette[1]]),
             1 => u16::from_le_bytes([palette[2], palette[3]]),
             2 => u16::from_le_bytes([palette[4], palette[5]]),
             3 => u16::from_le_bytes([palette[6], palette[7]]),
-            _ => panic!("Color ID {} not supported", val)
+            _ => panic!("Color ID {} not supported", val),
         };
         let (r5, g5, b5) = (color15 & 0x1F, (color15 >> 5) & 0x1F, (color15 >> 10) & 0x1F);
         // Convert to 32bit using color correction
         let r8 = (((r5 * 13 + g5 * 2 + b5) >> 1) & 0xFF) as u8;
         let g8 = (((g5 * 3 + b5) << 1) & 0xFF) as u8;
         let b8 = (((r5 * 3 + g5 * 2 + b5 * 11) >> 1) & 0xFF) as u8;
-        // Merge into a single 32bit value 
+        // Merge into a single 32bit value
         (0xFF << 24) | (r8 as u32) << 16 | (g8 as u32) << 8 | (b8 as u32)
     }
 
@@ -179,10 +181,9 @@ impl LCD {
             val => panic!("3D mode {} not supported", val),
         }
     }
-
 }
 
-
+#[rustfmt::skip]
 pub mod palette{
     // Color mappings for DMG
     pub const DMG_PALETTES: [(&str, [u32; 4]); 13] = [

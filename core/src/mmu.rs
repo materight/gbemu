@@ -6,7 +6,7 @@ use crate::mbc::MBC;
 use crate::ppu::{PPUMode, PPU};
 
 const WRAM_SIZE: usize = 0x8000;
-const HRAM_SIZE:usize = 0x0080;
+const HRAM_SIZE: usize = 0x0080;
 
 #[allow(non_snake_case)]
 #[derive(Clone)]
@@ -32,8 +32,7 @@ pub struct MMU {
 }
 
 impl MMU {
-
-    pub fn new(rom: &[u8], force_dmg: bool) -> Self { 
+    pub fn new(rom: &[u8], force_dmg: bool) -> Self {
         let mbc = MBC::new(&rom, force_dmg);
         let gcb_mode = mbc.cgb_mode();
         Self {
@@ -43,7 +42,8 @@ impl MMU {
             ppu: PPU::new(gcb_mode),
             clock: Clock::new(),
             apu: APU::new(),
-            IF: 0, IE: 0,
+            IF: 0,
+            IE: 0,
             joypad: Joypad::default(),
             joyp: 0,
             double_speed: false,
@@ -136,11 +136,13 @@ impl MMU {
 
     fn wvdma(&mut self, val: u8) {
         let mode = val & 0x80 != 0;
-        if self.hdma_mode == None { // Start VDMA
+        if self.hdma_mode == None {
+            // Start VDMA
             self.hdma_mode = Some(mode);
             self.hdma_len = val & 0x7F;
             self.hdma_last_ly = if mode { Some(self.ppu.ly) } else { None };
-        } else if !mode { // Interrupt VDMA
+        } else if !mode {
+            // Interrupt VDMA
             self.hdma_mode = None;
             self.hdma_last_ly = None;
         }
@@ -164,17 +166,24 @@ impl MMU {
     }
 
     fn step_vdma(&mut self) -> u16 {
-        if self.hdma_mode == Some(true) { // HDMA: single block per HBlank
-            if self.ppu.mode() == PPUMode::HBLANK && self.hdma_last_ly != Some(self.ppu.ly)  {
+        if self.hdma_mode == Some(true) {
+            // HDMA: single block per HBlank
+            if self.ppu.mode() == PPUMode::HBLANK && self.hdma_last_ly != Some(self.ppu.ly) {
                 self.hdma_last_ly = Some(self.ppu.ly);
                 self.step_hdma();
                 8 * 4
-            } else { 0 }
-        } else if self.hdma_mode == Some(false) { // GDMA: immediate transfer
+            } else {
+                0
+            }
+        } else if self.hdma_mode == Some(false) {
+            // GDMA: immediate transfer
             while self.hdma_mode != None {
                 self.step_hdma();
-            } 0
-        } else { 0 } // Disabled
+            }
+            0
+        } else {
+            0
+        } // Disabled
     }
 
     pub fn set_joypad(&mut self, joypad: &Joypad) {
@@ -186,7 +195,7 @@ impl MMU {
         elapsed_ticks += self.step_vdma();
 
         // Update internal clock. In double speed mode, the clock also run at double speed.
-        self.IF |= self.clock.step(elapsed_ticks * if self.double_speed { 2 } else { 1 }); 
+        self.IF |= self.clock.step(elapsed_ticks * if self.double_speed { 2 } else { 1 });
 
         // Update PPU status
         let (frame_buffer, ppu_interrupts) = self.ppu.step(elapsed_ticks);

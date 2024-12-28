@@ -1,18 +1,17 @@
 use std::collections::VecDeque;
 
-use crate::instructions::{Instruction, Op, OPMAP_SIZE, load_opmaps};
+use crate::debug;
+use crate::instructions::{load_opmaps, Instruction, Op, OPMAP_SIZE};
+use crate::mmu::MMU;
 use crate::registers::{Registers, CC, R16, R8};
 use crate::utils::{Get, Set};
-use crate::mmu::MMU;
-use crate::debug;
 
 // Interrupts  as (bit masks, address), in order of priority
 pub const INT_VBLANK: (u8, u16) = (0x01, 0x0040);
-pub const INT_STAT:   (u8, u16) = (0x02, 0x0048);
-pub const INT_TIMER:  (u8, u16) = (0x04, 0x0050);
+pub const INT_STAT: (u8, u16) = (0x02, 0x0048);
+pub const INT_TIMER: (u8, u16) = (0x04, 0x0050);
 pub const INT_SERIAL: (u8, u16) = (0x08, 0x0058);
 pub const INT_JOYPAD: (u8, u16) = (0x10, 0x0060);
-
 
 #[derive(Clone)]
 pub struct CPU {
@@ -29,7 +28,6 @@ pub struct CPU {
     // Debugging helper
     opcode_history: VecDeque<Op>,
 }
-
 
 impl CPU {
     pub fn new(rom: &[u8], force_dmg: bool) -> Self {
@@ -52,6 +50,7 @@ impl CPU {
         val
     }
 
+    #[rustfmt::skip]
     pub fn step(&mut self) -> u16 {
         let mut opcycles = 0;
 
@@ -66,7 +65,7 @@ impl CPU {
             let mut opcode_byte = self.fetch();
             let (mut opcode, mut extra_bytes, mut instr_opcycles) = self.opmap[opcode_byte as usize];
             opcycles += instr_opcycles;
-            
+
             // Read next instuction if the CB preifx is parsed
             if opcode == Op::CB_PREFIX {
                 opcode_byte = self.fetch();
@@ -189,7 +188,9 @@ impl CPU {
             if self.mmu.IE & int_flag != 0 && self.mmu.IF & int_flag != 0 {
                 self.halt = false;
                 if self.ime {
-                    if debug::enabled() { println!("INT {:#04x}", int_addr); }
+                    if debug::enabled() {
+                        println!("INT {:#04x}", int_addr);
+                    }
                     self.ime = false;
                     self.mmu.IF &= !int_flag;
                     self.call(int_addr);
@@ -201,7 +202,7 @@ impl CPU {
         0
     }
 
-    fn add8(&mut self, rid: R8, r2: u8, wc: bool) -> u8{
+    fn add8(&mut self, rid: R8, r2: u8, wc: bool) -> u8 {
         let r1: u8 = self.r(rid);
         let c = if wc && self.reg.f.c { 1 } else { 0 };
         let res = r1.wrapping_add(r2).wrapping_add(c);
@@ -247,7 +248,7 @@ impl CPU {
         self.w(rid, res);
     }
 
-    fn sub8(&mut self, rid: R8, r2: u8, wc: bool) -> u8{
+    fn sub8(&mut self, rid: R8, r2: u8, wc: bool) -> u8 {
         let r1 = self.r(rid);
         let c = if wc && self.reg.f.c { 1 } else { 0 };
         let res = r1.wrapping_sub(r2).wrapping_sub(c);
@@ -320,10 +321,18 @@ impl CPU {
         let r = self.r(rid);
         let res: u8;
         if left {
-            res = if through_carry {r << 1 | if self.reg.f.c {0x01} else {0}} else {r.rotate_left(1)};
+            res = if through_carry {
+                r << 1 | if self.reg.f.c { 0x01 } else { 0 }
+            } else {
+                r.rotate_left(1)
+            };
             self.reg.f.c = r & 0x80 != 0; // Most significant bit
         } else {
-            res = if through_carry {r >> 1 | if self.reg.f.c {0x80} else {0}} else {r.rotate_right(1)};
+            res = if through_carry {
+                r >> 1 | if self.reg.f.c { 0x80 } else { 0 }
+            } else {
+                r.rotate_right(1)
+            };
             self.reg.f.c = r & 0x01 != 0; // Least significant bit
         }
         self.reg.f.z = if rid == R8::A && !cb { false } else { res == 0 };
@@ -331,7 +340,7 @@ impl CPU {
         self.reg.f.h = false;
         self.w(rid, res);
     }
-    
+
     fn shift_(&mut self, rid: R8, left: bool, arithmetic: bool) {
         let r = self.r(rid);
         let res = if left {
@@ -339,7 +348,11 @@ impl CPU {
             r << 1
         } else {
             self.reg.f.c = r & 0x01 != 0;
-            if arithmetic { r >> 1 | (r & 0x80) } else { r >> 1 }
+            if arithmetic {
+                r >> 1 | (r & 0x80)
+            } else {
+                r >> 1
+            }
         };
         self.reg.f.z = res == 0;
         self.reg.f.n = false;
@@ -373,11 +386,20 @@ impl CPU {
     fn daa_(&mut self) {
         let mut a: u8 = self.reg.a;
         if self.reg.f.n {
-            if self.reg.f.c { a = a.wrapping_sub(0x60); }
-            if self.reg.f.h { a = a.wrapping_sub(0x06); }
+            if self.reg.f.c {
+                a = a.wrapping_sub(0x60);
+            }
+            if self.reg.f.h {
+                a = a.wrapping_sub(0x06);
+            }
         } else {
-            if self.reg.f.c || a > 0x99 { a = a.wrapping_add(0x60); self.reg.f.c = true; }
-            if self.reg.f.h || (a & 0x0F) > 0x09 { a = a.wrapping_add(0x06); }
+            if self.reg.f.c || a > 0x99 {
+                a = a.wrapping_add(0x60);
+                self.reg.f.c = true;
+            }
+            if self.reg.f.h || (a & 0x0F) > 0x09 {
+                a = a.wrapping_add(0x06);
+            }
         }
         self.reg.f.z = a == 0;
         self.reg.f.h = false;
@@ -406,9 +428,4 @@ impl CPU {
         self.push(self.reg.pc);
         self.jp(addr);
     }
-
 }
-
-
-
-

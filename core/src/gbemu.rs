@@ -1,9 +1,9 @@
 use std::collections::VecDeque;
 
 use crate::cpu::CPU;
+use crate::debug;
 use crate::joypad::Joypad;
 use crate::lcd::LCDBuffer;
-use crate::debug;
 
 const REWIND_FREQ: usize = 2;
 const REWIND_MAX_LEN: usize = 20; // In seconds
@@ -31,14 +31,18 @@ impl GBEmu {
         // Save state once every frame
         if self.frame_count % REWIND_FREQ == 0 && self.last_state_frame != self.frame_count {
             self.states.push_back(self.cpu.clone());
-            if self.states.len() >= MAX_NUM_STATES { self.states.pop_front(); }
+            if self.states.len() >= MAX_NUM_STATES {
+                self.states.pop_front();
+            }
             self.last_state_frame = self.frame_count
         }
         // Tick cpu and the rest of the devices
         self.cpu.mmu.set_joypad(joypad);
         let elapsed_ticks = self.cpu.step();
         let frame_buffer = self.cpu.mmu.step(elapsed_ticks);
-        if frame_buffer.is_some() { self.frame_count += 1 }
+        if frame_buffer.is_some() {
+            self.frame_count += 1
+        }
         frame_buffer
     }
 
@@ -92,4 +96,3 @@ impl GBEmu {
         self.cpu.mmu.mbc.load(save)
     }
 }
-

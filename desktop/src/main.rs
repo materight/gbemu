@@ -1,12 +1,11 @@
-use std::{fs, path::Path};
 use clap::Parser;
 use gb_core::debug;
-use sdl2::pixels::PixelFormatEnum;
 use sdl2::event::Event;
 use sdl2::keyboard::{Keycode, Mod};
+use sdl2::pixels::PixelFormatEnum;
+use std::{fs, path::Path};
 
-use gb_core::{GBEmu, Joypad, lcd};
-
+use gb_core::{lcd, GBEmu, Joypad};
 
 #[derive(Parser)]
 #[command(about = "A simple Gameboy emulator written in Rust")]
@@ -32,7 +31,6 @@ struct Args {
     debug: bool,
 }
 
-
 fn main() {
     let args = Args::parse();
     debug::set_enabled(args.debug);
@@ -44,7 +42,7 @@ fn main() {
     let savepath = filepath.with_file_name(format!(".{}.sav", filepath.file_name().unwrap().to_string_lossy()));
     match fs::read(savepath.clone()) {
         Ok(savefile) => emulator.load_save(&savefile),
-        Err(_) => println!("Could not find save file")
+        Err(_) => println!("Could not find save file"),
     }
 
     // Setup output window
@@ -100,7 +98,6 @@ fn main() {
     let mut speed: u64 = 1;
     let mut frame_count: u64 = 0;
     while running {
-
         // Run emulator step, i.e. execute next opcode
         let frame_buffer = if rewinding && emulator.can_rewind() {
             // Rewind to last state
@@ -117,9 +114,9 @@ fn main() {
             // Skip frames based on speed
             if frame_count % speed == 0 {
                 // Write frame to buffer
-                texture.with_lock(None, |buffer: &mut [u8], _| {
-                    frame_buffer.write_frame(buffer, args.scale as usize)
-                }).unwrap();
+                texture
+                    .with_lock(None, |buffer: &mut [u8], _| frame_buffer.write_frame(buffer, args.scale as usize))
+                    .unwrap();
                 canvas.copy(&texture, None, None).unwrap();
                 canvas.present();
 
@@ -133,6 +130,7 @@ fn main() {
             }
 
             // Handle key events
+            #[cfg_attr(rustfmt, rustfmt_skip)]
             for event in event_pump.poll_iter() {
                 match event {
                     // Shortcuts
@@ -171,8 +169,6 @@ fn main() {
                 let save_data = emulator.save();
                 fs::write(savepath.clone(), save_data).unwrap();
             }
-
         }
     }
 }
-

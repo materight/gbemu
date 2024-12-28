@@ -1,8 +1,8 @@
-use std::{panic, rc::Rc};
+use base64::{engine::general_purpose, Engine as _};
 use std::cell::RefCell;
+use std::{panic, rc::Rc};
 use wasm_bindgen::{prelude::*, Clamped};
 use web_sys::{console, window, CanvasRenderingContext2d, HtmlCanvasElement, ImageData, KeyboardEvent};
-use base64::{engine::general_purpose, Engine as _};
 
 use gb_core::{lcd, GBEmu, Joypad};
 
@@ -43,14 +43,19 @@ fn key_status_change(state: &mut EmuState, event: &KeyboardEvent, is_down: bool)
     };
 }
 
-
 #[wasm_bindgen]
 pub fn start(rom: &[u8]) {
     // Init emulator
     let mut emulator = GBEmu::new(&rom, false);
     let savekey = format!("{} - {}", emulator.rom_checksum(), emulator.rom_title());
     let (lcdw, lcdh) = (lcd::LCDW * SCALE, lcd::LCDH * SCALE);
-    let state = Rc::new(RefCell::new(EmuState { speed: 1, switch_palette: None, switch_3d_mode: None, rewind: false, joypad: Joypad::default() }));
+    let state = Rc::new(RefCell::new(EmuState {
+        speed: 1,
+        switch_palette: None,
+        switch_3d_mode: None,
+        rewind: false,
+        joypad: Joypad::default(),
+    }));
 
     // Init window and canvas
     panic::set_hook(Box::new(console_error_panic_hook::hook));
@@ -64,12 +69,18 @@ pub fn start(rom: &[u8]) {
 
     // Init listener for key events
     let state_key_down = state.clone();
-    let on_key_down = Closure::wrap(Box::new(move |event| { key_status_change(&mut state_key_down.borrow_mut(), &event, true) }) as Box<dyn FnMut(_)>);
-    document.add_event_listener_with_callback("keydown", on_key_down.as_ref().unchecked_ref()).unwrap();
+    let on_key_down =
+        Closure::wrap(Box::new(move |event| key_status_change(&mut state_key_down.borrow_mut(), &event, true)) as Box<dyn FnMut(_)>);
+    document
+        .add_event_listener_with_callback("keydown", on_key_down.as_ref().unchecked_ref())
+        .unwrap();
     on_key_down.forget();
     let state_key_up = state.clone();
-    let on_key_up = Closure::wrap(Box::new(move |event| { key_status_change(&mut state_key_up.borrow_mut(), &event, false) }) as Box<dyn FnMut(_)>);
-    document.add_event_listener_with_callback("keyup", on_key_up.as_ref().unchecked_ref()).unwrap();
+    let on_key_up =
+        Closure::wrap(Box::new(move |event| key_status_change(&mut state_key_up.borrow_mut(), &event, false)) as Box<dyn FnMut(_)>);
+    document
+        .add_event_listener_with_callback("keyup", on_key_up.as_ref().unchecked_ref())
+        .unwrap();
     on_key_up.forget();
 
     // Load save file if present
@@ -115,8 +126,8 @@ pub fn start(rom: &[u8]) {
                 frame_count += 1;
                 // Skip drawn frames to match the requested speed
                 if frame_count % state.speed == 0 {
-                    break Some(frame_buffer)
-                } 
+                    break Some(frame_buffer);
+                }
             }
         };
 

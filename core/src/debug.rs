@@ -13,7 +13,6 @@ pub const TILE_NROWS: usize = 768 / TILE_NCOLS;
 pub const TILEW: usize = TILE_NCOLS * 8;
 pub const TILEH: usize = TILE_NROWS * 8;
 
-
 pub fn set_enabled(val: bool) {
     unsafe { DEBUG_ENABLED = val }
 }
@@ -30,18 +29,24 @@ pub fn print_cpu_status(cpu: &CPU, opcode_byte: u8, opcode: Op, extra_bytes: u8,
     match extra_bytes {
         1 => write!(log, "[{:#04x}]", xbyte.unwrap()).unwrap(),
         2 => write!(log, "[{:#06x}]", xword.unwrap()).unwrap(),
-        _ => ()
+        _ => (),
     }
-    for _ in 0..(40 - log.len() as i32) { write!(log, " ").unwrap() }
+    for _ in 0..(40 - log.len() as i32) {
+        write!(log, " ").unwrap()
+    }
     // Print registers
     for r in [R8::A, R8::B, R8::C, R8::D, R8::E, R8::H, R8::L] {
         write!(log, "{:?}={:#04x} ", r, cpu.r(r)).unwrap();
     }
-    write!(log, "Z={} N={} H={} C={} ", cpu.reg.f.z as u8, cpu.reg.f.n as u8, cpu.reg.f.h as u8, cpu.reg.f.c as u8).unwrap();
+    write!(
+        log,
+        "Z={} N={} H={} C={} ",
+        cpu.reg.f.z as u8, cpu.reg.f.n as u8, cpu.reg.f.h as u8, cpu.reg.f.c as u8
+    )
+    .unwrap();
     write!(log, "SP={:#06x} ", cpu.reg.sp).unwrap();
     println!("{}", log);
 }
-
 
 pub fn draw_tilemap(ppu: &PPU) -> Vec<u8> {
     let mut buffer = vec![0; TILE_NROWS * TILE_NCOLS * 64 * 4];

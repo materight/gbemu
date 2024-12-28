@@ -1,6 +1,18 @@
-use crate::lcd::{LCD, LCDH, LCDW, LCDBuffer};
 use crate::cpu::{INT_STAT, INT_VBLANK};
-use crate::utils::byte_register;
+use crate::lcd::{LCDBuffer, LCD, LCDH, LCDW};
+
+#[rustfmt::skip::macros(byte_register)]
+mod ppu_registers {
+    use crate::utils::byte_register;
+
+    byte_register!(LCDControl { lcd_enable, window_mode, window_enable, tile_mode, bg_mode, obj_size, obj_enable, bg_enable });
+    byte_register!(LCDStatus { _7, lyc_int, mode2_int, mode1_int, mode0_int, ly_eq_lyc, ppu_mode_1, ppu_mode_0 });
+
+    byte_register!(OBJFlags { bg_priority, y_flip, x_flip, obp, bank, cgbp2, cgbp1, cgbp0 });
+    byte_register!(BGFlags { bg_priority, y_flip, x_flip, _4, bank, cgbp2, cgbp1, cgbp0 });
+}
+
+use ppu_registers::*;
 
 const VRAM_SIZE: usize = 0x4000;
 const OAM_SIZE: usize = 0x9F00;
@@ -8,19 +20,11 @@ const OAM_SIZE: usize = 0x9F00;
 const SCANLINE_TICKS: u16 = 456;
 const LY_MAX: u8 = 154;
 
-
-byte_register!(LCDControl { lcd_enable, window_mode, window_enable, tile_mode, bg_mode, obj_size, obj_enable, bg_enable });
-byte_register!(LCDStatus { _7, lyc_int, mode2_int, mode1_int, mode0_int, ly_eq_lyc, ppu_mode_1, ppu_mode_0 });
-
-byte_register!(OBJFlags { bg_priority, y_flip, x_flip, obp, bank, cgbp2, cgbp1, cgbp0 });
-byte_register!(BGFlags { bg_priority, y_flip, x_flip, _4, bank, cgbp2, cgbp1, cgbp0 });
-
-
 #[derive(PartialEq, Eq)]
 pub struct PPUMode(bool, bool);
 impl PPUMode {
     pub const HBLANK: PPUMode = PPUMode(false, false);
-    pub const VBLANK: PPUMode =  PPUMode(false, true);
+    pub const VBLANK: PPUMode = PPUMode(false, true);
     pub const OAM: PPUMode = PPUMode(true, false);
     pub const DRAW: PPUMode = PPUMode(true, true);
 }
@@ -33,22 +37,22 @@ pub struct PPU {
 
     lcdc: LCDControl,   // LCD control register
     lcdstat: LCDStatus, // LCD status register
-    scy: u8,  // Background Y coord
-    scx: u8,  // Background X coord
-    pub ly: u8,   // LCD Y scanline coord
-    lyc: u8,  // LCD Y scanline coord comparison
-    bgp: u8,  // Background/window palette
-    obp0: u8, // Object palette
-    obp1: u8, // Object palette
-    wy: u8,   // Window Y coord
-    wx: u8,   // Window X coord
-    wly: u8,  // Count lines with window pixels in it
+    scy: u8,            // Background Y coord
+    scx: u8,            // Background X coord
+    pub ly: u8,         // LCD Y scanline coord
+    lyc: u8,            // LCD Y scanline coord comparison
+    bgp: u8,            // Background/window palette
+    obp0: u8,           // Object palette
+    obp1: u8,           // Object palette
+    wy: u8,             // Window Y coord
+    wx: u8,             // Window X coord
+    wly: u8,            // Count lines with window pixels in it
 
-    cgb_mode: bool, // Wether the current ROM supports CGB features
-    vbank: bool, // VRAM bank (CGB)
-    opri: bool,  // Object priority mode (CGB)
-    bgpi: u8,    // BG palette index (CGB)
-    obpi: u8,    // OBJ palette index (CGB)
+    cgb_mode: bool,      // Wether the current ROM supports CGB features
+    vbank: bool,         // VRAM bank (CGB)
+    opri: bool,          // Object priority mode (CGB)
+    bgpi: u8,            // BG palette index (CGB)
+    obpi: u8,            // OBJ palette index (CGB)
     bgpalette: [u8; 64], // BG palette RAM (CGB)
     obpalette: [u8; 64], // OBJ palette RAM (CGB)
 
@@ -62,15 +66,27 @@ impl PPU {
     pub fn new(cgb_mode: bool) -> Self {
         Self {
             lcd: LCD::new(),
-            vram: [0; VRAM_SIZE], oam: [0; OAM_SIZE],
-            lcdc: LCDControl::from(0), lcdstat: LCDStatus::from(0),
-            scy: 0, scx: 0, ly: 0, lyc: 0,
-            bgp: 0, obp0: 0, obp1: 0, wy: 0, wx: 0, wly: 0,
+            vram: [0; VRAM_SIZE],
+            oam: [0; OAM_SIZE],
+            lcdc: LCDControl::from(0),
+            lcdstat: LCDStatus::from(0),
+            scy: 0,
+            scx: 0,
+            ly: 0,
+            lyc: 0,
+            bgp: 0,
+            obp0: 0,
+            obp1: 0,
+            wy: 0,
+            wx: 0,
+            wly: 0,
             cgb_mode: cgb_mode,
             vbank: false,
             opri: true,
-            bgpi: 0, obpi: 0,
-            bgpalette: [0xFF; 64], obpalette: [0xFF; 64],
+            bgpi: 0,
+            obpi: 0,
+            bgpalette: [0xFF; 64],
+            obpalette: [0xFF; 64],
             scanline_ticks: 0,
             scanline_bg_colors: [0; LCDW],
             scanline_bg_pri: [false; LCDW],
@@ -110,7 +126,6 @@ impl PPU {
         }
     }
 
-
     pub fn w(&mut self, addr: u16, val: u8) {
         match addr {
             /* VRAM */
@@ -146,7 +161,7 @@ impl PPU {
     }
 
     fn rtile(&self, tile_nr: u8, row_idx: u8, is_obj: bool, vbank: bool) -> u16 {
-        let tile_addr = if self.lcdc.tile_mode || is_obj { 
+        let tile_addr = if self.lcdc.tile_mode || is_obj {
             0x8000 + (tile_nr as u16) * 16
         } else {
             (0x9000 as i32 + (tile_nr as i8 as i32) * 16) as u16
@@ -155,8 +170,8 @@ impl PPU {
         let (row_l, row_h) = (self.vram[row_addr] as u16, self.vram[row_addr + 1] as u16);
         let mut row_data = 0;
         for i in 0..8 {
-            row_data |= ((row_l >> i) & 0x01) << i*2;
-            row_data |= ((row_h >> i) & 0x01) << i*2 + 1;
+            row_data |= ((row_l >> i) & 0x01) << i * 2;
+            row_data |= ((row_h >> i) & 0x01) << i * 2 + 1;
         }
         row_data
     }
@@ -180,10 +195,14 @@ impl PPU {
 
     fn set_ly(&mut self, ly: u8) -> u8 {
         self.ly = ly;
-        if ly == 0 { self.wly = 0; }
+        if ly == 0 {
+            self.wly = 0;
+        }
         self.lcdstat.ly_eq_lyc = self.ly == self.lyc;
         let mut interrupts = 0;
-        if self.lcdstat.lyc_int && self.lcdstat.ly_eq_lyc { interrupts |= INT_STAT.0 }
+        if self.lcdstat.lyc_int && self.lcdstat.ly_eq_lyc {
+            interrupts |= INT_STAT.0
+        }
         interrupts
     }
 
@@ -204,7 +223,7 @@ impl PPU {
                 PPUMode::HBLANK if self.lcdstat.mode0_int => INT_STAT.0,
                 PPUMode::OAM if self.lcdstat.mode2_int => INT_STAT.0,
                 PPUMode::VBLANK => INT_VBLANK.0 | if self.lcdstat.mode1_int { INT_STAT.0 } else { 0 },
-                _ => 0
+                _ => 0,
             };
             (interrupts, Some(current_mode))
         } else {
@@ -218,7 +237,7 @@ impl PPU {
             self.set_ly(0);
             self.scanline_ticks = 0;
             (self.lcdstat.ppu_mode_1, self.lcdstat.ppu_mode_0) = (PPUMode::HBLANK.0, PPUMode::HBLANK.1);
-            return (None, 0)
+            return (None, 0);
         }
         let mut interrupts: u8 = 0;
         // Set current mode and trigger interrupt if needed.
@@ -238,7 +257,9 @@ impl PPU {
                     let tile = self.rtile(tile_nr, tile_row, false, flags.bank);
                     for i in 0..8 {
                         let x = (lx * 8) as i16 - (self.scx % 8) as i16 + i as i16;
-                        if x < 0 || x >= LCDW as i16 { continue }
+                        if x < 0 || x >= LCDW as i16 {
+                            continue;
+                        }
                         let px = PPU::rpx(tile, i, flags.x_flip);
                         self.scanline_bg_colors[x as usize] = px;
                         self.scanline_bg_pri[x as usize] = flags.bg_priority;
@@ -262,7 +283,9 @@ impl PPU {
                     let tile = self.rtile(tile_nr, tile_row, false, flags.bank);
                     for i in 0..8 {
                         let x = (lx * 8) as i16 + wx + i as i16;
-                        if x < 0 || x >= LCDW as i16 { continue }
+                        if x < 0 || x >= LCDW as i16 {
+                            continue;
+                        }
                         let px = PPU::rpx(tile, i, flags.x_flip);
                         self.scanline_bg_colors[x as usize] = px;
                         self.scanline_bg_pri[x as usize] = flags.bg_priority;
@@ -287,7 +310,9 @@ impl PPU {
                     if obj_y <= (self.ly as i16) && (self.ly as i16) < obj_y + obj_h && obj_y < LCDH as i16 {
                         let obj_x = self.r(0xFE00 + i * 4 + 1) as i16 - 8;
                         selected_objs.push((i, obj_x, obj_y));
-                        if selected_objs.len() >= 10 { break }
+                        if selected_objs.len() >= 10 {
+                            break;
+                        }
                     }
                 }
                 // Sort by priority (higher priorities are drawn later so they overwrite lower priorities)
@@ -298,29 +323,39 @@ impl PPU {
                 }
                 // Draw selected objects
                 for (i, obj_x, obj_y) in selected_objs {
-                    let tile_nr = self.r(0xFE00 + i * 4 + 2) & if obj_h == 16 { 0xFE } else { 0xFF };  // Last bit is ignored in 8x16 mode
+                    let tile_nr = self.r(0xFE00 + i * 4 + 2) & if obj_h == 16 { 0xFE } else { 0xFF }; // Last bit is ignored in 8x16 mode
                     let flags = OBJFlags::from(self.r(0xFE00 + i * 4 + 3));
-                    let tile_row = if !flags.y_flip { self.ly as i16 - obj_y } else { (obj_h - 1) - (self.ly as i16 - obj_y) };
+                    let tile_row = if !flags.y_flip {
+                        self.ly as i16 - obj_y
+                    } else {
+                        (obj_h - 1) - (self.ly as i16 - obj_y)
+                    };
                     let tile = self.rtile(tile_nr, tile_row as u8, true, flags.bank);
                     // Write pixel by pixel to buffer
                     for i in 0..8 {
                         let x = obj_x + i as i16;
-                        if x < 0 || x >= LCDW as i16 { continue }
+                        if x < 0 || x >= LCDW as i16 {
+                            continue;
+                        }
                         let px = PPU::rpx(tile, i, flags.x_flip);
                         // Skip pixel if transparent or if piority is set to BG and BG is not transparent
-                        let bg_has_priority = self.scanline_bg_colors[x as usize] != 0 && if self.cgb_mode {
-                            self.lcdc.bg_enable && (flags.bg_priority || self.scanline_bg_pri[x as usize])
-                        } else {
-                            flags.bg_priority
-                        };
-                        if px == 0 || bg_has_priority { continue }
+                        let bg_has_priority = self.scanline_bg_colors[x as usize] != 0
+                            && if self.cgb_mode {
+                                self.lcdc.bg_enable && (flags.bg_priority || self.scanline_bg_pri[x as usize])
+                            } else {
+                                flags.bg_priority
+                            };
+                        if px == 0 || bg_has_priority {
+                            continue;
+                        }
                         // Draw
                         if self.cgb_mode {
                             let cgbp = OBJFlags::pack(&[flags.cgbp2, flags.cgbp1, flags.cgbp0]);
                             let palette = PPU::rpalette(&self.obpalette, cgbp);
                             self.lcd.w_cgb(x as u8, self.ly, px, palette, true);
                         } else {
-                            self.lcd.w_dmg(x as u8, self.ly, px, if flags.obp {self.obp1} else {self.obp0}, true);
+                            self.lcd
+                                .w_dmg(x as u8, self.ly, px, if flags.obp { self.obp1 } else { self.obp0 }, true);
                         }
                     }
                 }
@@ -342,6 +377,4 @@ impl PPU {
 
         (frame, interrupts)
     }
-
 }
-

@@ -6,9 +6,9 @@ use sdl2::keyboard::{Keycode, Mod};
 use sdl2::pixels::PixelFormatEnum;
 use std::{fs, path::Path};
 
-use gb_core::{lcd, GBEmu, Joypad, apu};
+use gb_core::{apu, lcd, GBEmu, Joypad};
 
-const AUDIO_SAMPLE_SIZE: usize = 4096;
+const AUDIO_SAMPLE_SIZE: usize = 1024;
 
 #[derive(Parser)]
 #[command(about = "A simple Gameboy emulator written in Rust")]
@@ -100,7 +100,7 @@ fn main() {
     let desired_spec = AudioSpecDesired {
         freq: Some(apu::AUDIO_FREQUENCY as i32),
         channels: Some(2),
-        samples: None,     
+        samples: None,
     };
     let audio_device: AudioQueue<f32> = audio_subsystem.open_queue(None, &desired_spec).unwrap();
 
@@ -178,7 +178,6 @@ fn main() {
                         _ => {}
                     }
                 }
-            
 
                 // Save RAM content to file every 60 frames (~1s)
                 if frame_count % 60 == 0 {
@@ -191,7 +190,7 @@ fn main() {
         // Play audio and skip samples if the audio buffer is full
         let audio_buffer = emulator.audio_buffer();
         if audio_buffer.len() >= AUDIO_SAMPLE_SIZE {
-            if audio_device.size() as usize <= AUDIO_SAMPLE_SIZE * 8 {
+            if audio_device.size() as usize <= AUDIO_SAMPLE_SIZE * 16 {
                 audio_device.queue_audio(audio_buffer).unwrap();
             }
             emulator.clear_audio_buffer();

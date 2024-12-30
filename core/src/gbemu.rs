@@ -36,14 +36,25 @@ impl GBEmu {
             }
             self.last_state_frame = self.frame_count
         }
+
         // Tick cpu and the rest of the devices
         self.cpu.mmu.set_joypad(joypad);
         let elapsed_ticks = self.cpu.step();
         let frame_buffer = self.cpu.mmu.step(elapsed_ticks);
+
         if frame_buffer.is_some() {
             self.frame_count += 1
         }
+
         frame_buffer
+    }
+
+    pub fn audio_buffer(&self) -> &[f32] {
+        &self.cpu.mmu.apu.buffer
+    }
+
+    pub fn clear_audio_buffer(&mut self) {
+        self.cpu.mmu.apu.buffer.clear();
     }
 
     pub fn can_rewind(&self) -> bool {

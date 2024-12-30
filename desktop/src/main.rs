@@ -1,11 +1,14 @@
 use clap::Parser;
 use gb_core::debug;
+use sdl2::audio::{AudioQueue, AudioSpecDesired};
 use sdl2::event::Event;
 use sdl2::keyboard::{Keycode, Mod};
 use sdl2::pixels::PixelFormatEnum;
 use std::{fs, path::Path};
 
-use gb_core::{lcd, GBEmu, Joypad};
+use gb_core::{lcd, GBEmu, Joypad, apu};
+
+const AUDIO_SAMPLE_SIZE: usize = 4096;
 
 #[derive(Parser)]
 #[command(about = "A simple Gameboy emulator written in Rust")]
@@ -45,12 +48,14 @@ fn main() {
         Err(_) => println!("Could not find save file"),
     }
 
-    // Setup output window
+    // Initialize SDL
     let (lcdw, lcdh) = (args.scale * lcd::LCDW as u32, args.scale * lcd::LCDH as u32);
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
+    let audio_subsystem = sdl_context.audio().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
 
+    // Setup output window
     let mut canvas = video_subsystem
         .window(emulator.rom_title().as_str(), lcdw, lcdh)
         .position_centered()
@@ -91,6 +96,17 @@ fn main() {
         canvas.window_mut().raise();
     }
 
+    // Setup audio
+    let desired_spec = AudioSpecDesired {
+        freq: Some(apu::AUDIO_FREQUENCY as i32),
+        channels: Some(2),
+        samples: None,     
+    };
+    let audio_device: AudioQueue<f32> = audio_subsystem.open_queue(None, &desired_spec).unwrap();
+
+    // Start audio playback
+    audio_device.resume();
+
     // Start emulation loop
     let mut running = true;
     let mut rewinding = false;
@@ -127,48 +143,58 @@ fn main() {
                     tile_canvas.copy(&tile_texture, None, None).unwrap();
                     tile_canvas.present();
                 }
-            }
 
-            // Handle key events
-            #[cfg_attr(rustfmt, rustfmt_skip)]
-            for event in event_pump.poll_iter() {
-                match event {
-                    // Shortcuts
-                    Event::Quit { .. } | Event::KeyUp { keycode: Some(Keycode::Escape), .. } => running = false,
-                    Event::KeyDown { keycode: Some(Keycode::R), repeat: false, ..} => rewinding = true,
-                    Event::KeyUp { keycode: Some(Keycode::R), repeat: false, ..} => rewinding = false,
-                    Event::KeyUp { keycode: Some(Keycode::Equals), .. } if speed < 32 => speed *= 2,
-                    Event::KeyUp { keycode: Some(Keycode::Minus), .. } if speed > 1 => speed /= 2,
-                    Event::KeyUp { keycode: Some(Keycode::Tab), keymod: Mod::NOMOD, .. } => emulator.set_palette(emulator.current_palette() + 1),
-                    Event::KeyUp { keycode: Some(Keycode::Tab), keymod: Mod::LSHIFTMOD, .. } => emulator.set_palette(emulator.current_palette() - 1),
-                    Event::KeyUp { keycode: Some(Keycode::P), keymod: Mod::NOMOD, .. } => emulator.set_3d_mode(emulator.current_3d_mode() + 1),
-                    Event::KeyUp { keycode: Some(Keycode::P), keymod: Mod::LSHIFTMOD, .. } => emulator.set_3d_mode(emulator.current_3d_mode() - 1),
-                    // Joypad
-                    Event::KeyDown { keycode: Some(Keycode::A), repeat: false, .. } => joypad.a = true,
-                    Event::KeyUp { keycode: Some(Keycode::A), repeat: false, .. } => joypad.a = false,
-                    Event::KeyDown { keycode: Some(Keycode::S), repeat: false, .. } => joypad.b = true,
-                    Event::KeyUp { keycode: Some(Keycode::S), repeat: false, .. } => joypad.b = false,
-                    Event::KeyDown { keycode: Some(Keycode::Up), repeat: false,.. } => joypad.up = true,
-                    Event::KeyUp { keycode: Some(Keycode::Up), repeat: false,.. } => joypad.up = false,
-                    Event::KeyDown { keycode: Some(Keycode::Down), repeat: false,.. } => joypad.down = true,
-                    Event::KeyUp { keycode: Some(Keycode::Down), repeat: false,.. } => joypad.down = false,
-                    Event::KeyDown { keycode: Some(Keycode::Left), repeat: false,.. } => joypad.left = true,
-                    Event::KeyUp { keycode: Some(Keycode::Left), repeat: false,.. } => joypad.left = false,
-                    Event::KeyDown { keycode: Some(Keycode::Right), repeat: false, .. } => joypad.right = true,
-                    Event::KeyUp { keycode: Some(Keycode::Right), repeat: false, .. } => joypad.right = false,
-                    Event::KeyDown { keycode: Some(Keycode::Return), repeat: false, .. } => joypad.start = true,
-                    Event::KeyUp { keycode: Some(Keycode::Return), repeat: false, .. } => joypad.start = false,
-                    Event::KeyDown { keycode: Some(Keycode::Backspace), repeat: false, .. } => joypad.select = true,
-                    Event::KeyUp { keycode: Some(Keycode::Backspace), repeat: false, .. } => joypad.select = false,
-                    _ => {}
+                // Handle key events
+                #[cfg_attr(rustfmt, rustfmt_skip)]
+                for event in event_pump.poll_iter() {
+                    match event {
+                        // Shortcuts
+                        Event::Quit { .. } | Event::KeyUp { keycode: Some(Keycode::Escape), .. } => running = false,
+                        Event::KeyDown { keycode: Some(Keycode::R), repeat: false, ..} => rewinding = true,
+                        Event::KeyUp { keycode: Some(Keycode::R), repeat: false, ..} => rewinding = false,
+                        Event::KeyUp { keycode: Some(Keycode::Equals), .. } if speed < 32 => speed *= 2,
+                        Event::KeyUp { keycode: Some(Keycode::Minus), .. } if speed > 1 => speed /= 2,
+                        Event::KeyUp { keycode: Some(Keycode::Tab), keymod: Mod::NOMOD, .. } => emulator.set_palette(emulator.current_palette() + 1),
+                        Event::KeyUp { keycode: Some(Keycode::Tab), keymod: Mod::LSHIFTMOD, .. } => emulator.set_palette(emulator.current_palette() - 1),
+                        Event::KeyUp { keycode: Some(Keycode::P), keymod: Mod::NOMOD, .. } => emulator.set_3d_mode(emulator.current_3d_mode() + 1),
+                        Event::KeyUp { keycode: Some(Keycode::P), keymod: Mod::LSHIFTMOD, .. } => emulator.set_3d_mode(emulator.current_3d_mode() - 1),
+                        // Joypad
+                        Event::KeyDown { keycode: Some(Keycode::A), repeat: false, .. } => joypad.a = true,
+                        Event::KeyUp { keycode: Some(Keycode::A), repeat: false, .. } => joypad.a = false,
+                        Event::KeyDown { keycode: Some(Keycode::S), repeat: false, .. } => joypad.b = true,
+                        Event::KeyUp { keycode: Some(Keycode::S), repeat: false, .. } => joypad.b = false,
+                        Event::KeyDown { keycode: Some(Keycode::Up), repeat: false,.. } => joypad.up = true,
+                        Event::KeyUp { keycode: Some(Keycode::Up), repeat: false,.. } => joypad.up = false,
+                        Event::KeyDown { keycode: Some(Keycode::Down), repeat: false,.. } => joypad.down = true,
+                        Event::KeyUp { keycode: Some(Keycode::Down), repeat: false,.. } => joypad.down = false,
+                        Event::KeyDown { keycode: Some(Keycode::Left), repeat: false,.. } => joypad.left = true,
+                        Event::KeyUp { keycode: Some(Keycode::Left), repeat: false,.. } => joypad.left = false,
+                        Event::KeyDown { keycode: Some(Keycode::Right), repeat: false, .. } => joypad.right = true,
+                        Event::KeyUp { keycode: Some(Keycode::Right), repeat: false, .. } => joypad.right = false,
+                        Event::KeyDown { keycode: Some(Keycode::Return), repeat: false, .. } => joypad.start = true,
+                        Event::KeyUp { keycode: Some(Keycode::Return), repeat: false, .. } => joypad.start = false,
+                        Event::KeyDown { keycode: Some(Keycode::Backspace), repeat: false, .. } => joypad.select = true,
+                        Event::KeyUp { keycode: Some(Keycode::Backspace), repeat: false, .. } => joypad.select = false,
+                        _ => {}
+                    }
+                }
+            
+
+                // Save RAM content to file every 60 frames (~1s)
+                if frame_count % 60 == 0 {
+                    let save_data = emulator.save();
+                    fs::write(savepath.clone(), save_data).unwrap();
                 }
             }
+        }
 
-            // Save RAM content to file every 60 frames (~1s)
-            if frame_count % 60 == 0 {
-                let save_data = emulator.save();
-                fs::write(savepath.clone(), save_data).unwrap();
+        // Play audio and skip samples if the audio buffer is full
+        let audio_buffer = emulator.audio_buffer();
+        if audio_buffer.len() >= AUDIO_SAMPLE_SIZE {
+            if audio_device.size() as usize <= AUDIO_SAMPLE_SIZE * 8 {
+                audio_device.queue_audio(audio_buffer).unwrap();
             }
+            emulator.clear_audio_buffer();
         }
     }
 }

@@ -200,6 +200,10 @@ impl MMU {
         // Update PPU status
         let (frame_buffer, ppu_interrupts) = self.ppu.step(elapsed_ticks);
         self.IF |= ppu_interrupts;
+
+        // Update APU status
+        self.apu.step(elapsed_ticks);
+
         frame_buffer
     }
 }

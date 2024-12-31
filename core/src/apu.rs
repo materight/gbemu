@@ -421,7 +421,7 @@ struct ChNoise {
 impl ChNoise {
     fn r(&self, addr: u16) -> u8 {
         match addr {
-            0xFF1F => 0,  // Unused
+            0xFF1F => 0, // Unused
             0xFF20 => self.length_load,
             0xFF21 => (self.initial_volume << 4) | (self.envelope_direction as u8) << 3 | self.envelope_period,
             0xFF22 => (self.lfsr_shift << 4) | (self.lfsr_width as u8) << 3 | self.lfsr_divisor_code,
@@ -432,7 +432,7 @@ impl ChNoise {
 
     fn w(&mut self, addr: u16, val: u8) {
         match addr {
-            0xFF1F => (),  // Unused
+            0xFF1F => (), // Unused
             0xFF20 => {
                 self.length_load = val & 0b0011_1111;
                 self.length_timer = 64 - self.length_load;

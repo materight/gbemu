@@ -135,7 +135,8 @@ pub fn start(rom: &[u8]) {
                     let audio_queue = audio_ctx
                         .create_buffer(2, audio_buffer.len() as u32 / 2, apu::AUDIO_FREQUENCY as f32)
                         .unwrap();
-                    let (left_buffer, right_buffer): (Vec<_>, Vec<_>) = audio_buffer.chunks_exact(2).map(|chunk| (chunk[0], chunk[1])).unzip();
+                    let (left_buffer, right_buffer): (Vec<_>, Vec<_>) =
+                        audio_buffer.chunks_exact(2).map(|chunk| (chunk[0], chunk[1])).unzip();
                     audio_queue.copy_to_channel(&left_buffer, 0).unwrap();
                     audio_queue.copy_to_channel(&right_buffer, 1).unwrap();
 

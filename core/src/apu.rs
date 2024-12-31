@@ -47,7 +47,7 @@ impl ChGlobal {
                 self.ch1_right,
             ]),
             0xFF26 => (self.audio_on as u8) << 7 | pack_bits(&[self.ch4_on, self.ch3_on, self.ch2_on, self.ch1_on]),
-            _ => 0,
+            _ => panic!("Address {:#06x} not part of global channel", addr),
         }
     }
 
@@ -70,7 +70,7 @@ impl ChGlobal {
             0xFF26 => {
                 self.audio_on = val & 0b1000_0000 != 0;
             }
-            _ => (),
+            _ => panic!("Address {:#06x} not part of global channel", addr),
         }
     }
 
@@ -140,7 +140,7 @@ impl ChPulse {
             0xFF12 => (self.initial_volume << 4) | (self.envelope_direction as u8) << 3 | self.envelope_period,
             0xFF13 => self.frequency as u8,
             0xFF14 => (self.trigger as u8) << 7 | (self.length_enabled as u8) << 6 | ((self.frequency >> 8) as u8),
-            _ => 0,
+            _ => panic!("Address {:#06x} not part of pulse channel", addr),
         }
     }
 
@@ -193,7 +193,7 @@ impl ChPulse {
                     }
                 }
             }
-            _ => (),
+            _ => panic!("Address {:#06x} not part of pulse channel", addr),
         }
     }
 
@@ -306,32 +306,32 @@ struct ChWave {
 impl ChWave {
     fn r(&self, addr: u16) -> u8 {
         match addr {
-            0xFF30 => (self.dac_enabled as u8) << 7,
-            0xFF31 => self.length_load,
-            0xFF32 => self.volume << 5,
-            0xFF33 => self.frequency as u8,
-            0xFF34 => (self.trigger as u8) << 7 | (self.length_enabled as u8) << 6 | ((self.frequency >> 8) as u8),
+            0xFF1A => (self.dac_enabled as u8) << 7,
+            0xFF1B => self.length_load,
+            0xFF1C => self.volume << 5,
+            0xFF1D => self.frequency as u8,
+            0xFF1E => (self.trigger as u8) << 7 | (self.length_enabled as u8) << 6 | ((self.frequency >> 8) as u8),
             0xFF30..=0xFF3F => self.wave_ram[(addr - 0xFF30) as usize],
-            _ => 0,
+            _ => panic!("Address {:#06x} not part of wave channel", addr),
         }
     }
 
     fn w(&mut self, addr: u16, val: u8) {
         match addr {
-            0xFF30 => {
+            0xFF1A => {
                 self.dac_enabled = val & 0b1000_0000 != 0;
             }
-            0xFF31 => {
+            0xFF1B => {
                 self.length_load = val;
                 self.length_timer = 256 - self.length_load as u16;
             }
-            0xFF32 => {
+            0xFF1C => {
                 self.volume = (val & 0b0110_0000) >> 5;
             }
-            0xFF33 => {
+            0xFF1D => {
                 self.frequency = (self.frequency & 0xFF00) | val as u16;
             }
-            0xFF34 => {
+            0xFF1E => {
                 self.trigger = val & 0b1000_0000 != 0;
                 self.length_enabled = val & 0b0100_0000 != 0;
                 self.frequency = (self.frequency & 0x00FF) | (((val & 0b0000_0111) as u16) << 8);
@@ -346,7 +346,7 @@ impl ChWave {
                 }
             }
             0xFF30..=0xFF3F => self.wave_ram[(addr - 0xFF30) as usize] = val,
-            _ => (),
+            _ => panic!("Address {:#06x} not part of wave channel", addr),
         }
     }
 
@@ -421,16 +421,18 @@ struct ChNoise {
 impl ChNoise {
     fn r(&self, addr: u16) -> u8 {
         match addr {
+            0xFF1F => 0,  // Unused
             0xFF20 => self.length_load,
             0xFF21 => (self.initial_volume << 4) | (self.envelope_direction as u8) << 3 | self.envelope_period,
             0xFF22 => (self.lfsr_shift << 4) | (self.lfsr_width as u8) << 3 | self.lfsr_divisor_code,
             0xFF23 => (self.trigger as u8) << 7 | (self.length_enabled as u8) << 6,
-            _ => 0,
+            _ => panic!("Address {:#06x} not part of noise channel", addr),
         }
     }
 
     fn w(&mut self, addr: u16, val: u8) {
         match addr {
+            0xFF1F => (),  // Unused
             0xFF20 => {
                 self.length_load = val & 0b0011_1111;
                 self.length_timer = 64 - self.length_load;
@@ -464,7 +466,7 @@ impl ChNoise {
                     self.lfsr = 0x7FFF;
                 }
             }
-            _ => (),
+            _ => panic!("Address {:#06x} not part of noise channel", addr),
         }
     }
 
@@ -568,6 +570,7 @@ impl APU {
             0xFF1A..=0xFF1E => self.ch3.r(addr),
             0xFF1F..=0xFF23 => self.ch4.r(addr),
             0xFF24..=0xFF26 => self.ch_global.r(addr),
+            0xFF27..=0xFF2F => 0, // Unused
             0xFF30..=0xFF3F => self.ch3.r(addr),
             _ => panic!("Address {:#06x} not part of APU", addr),
         }
@@ -580,6 +583,7 @@ impl APU {
             0xFF1A..=0xFF1E => self.ch3.w(addr, val),
             0xFF1F..=0xFF23 => self.ch4.w(addr, val),
             0xFF24..=0xFF26 => self.ch_global.w(addr, val),
+            0xFF27..=0xFF2F => (), // Unused
             0xFF30..=0xFF3F => self.ch3.w(addr, val),
             _ => panic!("Address {:#06x} not part of APU", addr),
         }

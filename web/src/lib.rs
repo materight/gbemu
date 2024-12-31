@@ -144,11 +144,10 @@ pub fn start(rom: &[u8]) {
                     audio_source.set_buffer(Some(&audio_queue));
                     audio_source.connect_with_audio_node(&audio_ctx.destination()).unwrap();
                     audio_source.start_with_when(audio_last_sample_end).unwrap();
-                    if audio_last_sample_end == 0.0 {
+                    if audio_last_sample_end < audio_ctx.current_time() {
                         audio_last_sample_end = audio_ctx.current_time();
-                    } else {
-                        audio_last_sample_end += audio_queue.duration();
                     }
+                    audio_last_sample_end += audio_queue.duration();
                 }
                 emulator.clear_audio_buffer();
             }

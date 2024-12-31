@@ -2,12 +2,14 @@ use base64::{engine::general_purpose, Engine as _};
 use std::cell::RefCell;
 use std::{panic, rc::Rc};
 use wasm_bindgen::{prelude::*, Clamped};
-use web_sys::{console, window, CanvasRenderingContext2d, HtmlCanvasElement, ImageData, KeyboardEvent};
+use web_sys::{console, window, AudioContext, AudioContextOptions, CanvasRenderingContext2d, HtmlCanvasElement, ImageData, KeyboardEvent};
 
-use gb_core::{lcd, GBEmu, Joypad};
+use gb_core::{apu, lcd, GBEmu, Joypad};
 
 const SCALE: usize = 4;
 const PALETTE_IDX_KEY: &str = "palette_idx";
+const AUDIO_SAMPLE_SIZE: usize = 2048;
+const AUDIO_MAX_DELAY: f64 = 0.1;
 
 struct EmuState {
     speed: u32,
@@ -67,6 +69,16 @@ pub fn start(rom: &[u8]) {
     canvas.set_width(lcdw as u32);
     canvas.set_height(lcdh as u32);
 
+    // Init audio context
+    let audio_ctx = AudioContext::new_with_context_options(
+        &AudioContextOptions::new()
+            .sample_rate(apu::AUDIO_FREQUENCY as f32)
+            .latency_hint(&0.into()),
+    )
+    .unwrap();
+    let mut audio_last_sample_end: f64 = 0.0;
+    let _ = audio_ctx.resume().unwrap();
+
     // Init listener for key events
     let state_key_down = state.clone();
     let on_key_down =
@@ -107,10 +119,40 @@ pub fn start(rom: &[u8]) {
                 emulator.set_palette(new_palette_idx);
                 local_storage.set_item(PALETTE_IDX_KEY, &new_palette_idx.to_string()).unwrap();
             }
+
             // Update 3D mode
             if let Some(switch) = state.switch_3d_mode.take() {
                 let new_3d_mode_idx = emulator.current_3d_mode() + if switch { 1 } else { -1 };
                 emulator.set_3d_mode(new_3d_mode_idx);
+            }
+
+            // Play audio
+            let audio_buffer = emulator.audio_buffer();
+            if audio_buffer.len() >= AUDIO_SAMPLE_SIZE {
+                // Skip samples if the delay is too high
+                if audio_last_sample_end - audio_ctx.current_time() < AUDIO_MAX_DELAY {
+                    // Copy buffer to left and right channels
+                    let audio_queue = audio_ctx
+                        .create_buffer(2, audio_buffer.len() as u32 / 2, apu::AUDIO_FREQUENCY as f32)
+                        .unwrap();
+                    let (left_buffer, right_buffer) = audio_buffer
+                        .chunks_exact(2)
+                        .map(|chunk| (chunk[0], chunk[1]))
+                        .unzip::<_, _, Vec<_>, Vec<_>>();
+                    audio_queue.copy_to_channel(&left_buffer, 0).unwrap();
+                    audio_queue.copy_to_channel(&right_buffer, 1).unwrap();
+
+                    // Create a buffer source and play it
+                    let audio_source = audio_ctx.create_buffer_source().unwrap();
+                    audio_source.set_buffer(Some(&audio_queue));
+                    audio_source.connect_with_audio_node(&audio_ctx.destination()).unwrap();
+                    audio_source.start_with_when(audio_last_sample_end).unwrap();
+                    if audio_last_sample_end < audio_ctx.current_time() {
+                        audio_last_sample_end = audio_ctx.current_time();
+                    }
+                    audio_last_sample_end += audio_queue.duration();
+                }
+                emulator.clear_audio_buffer();
             }
 
             let frame_buffer = if state.rewind && emulator.can_rewind() {

@@ -19,14 +19,6 @@ macro_rules! byte_register {
                 let mut bit = 8;
                 $( bit -= 1; self.$field = value & (1 << bit) != 0; )*
             }
-
-            pub fn pack(bools: &[bool]) -> u8 {
-                bools.iter()
-                     .rev()
-                     .enumerate()
-                     .fold(0, |acc, (i, &b)| acc | ((b as u8) << i))
-            }
-
         }
 
         impl From<u8> for $name {
@@ -48,6 +40,10 @@ macro_rules! byte_register {
         }
 
     };
+}
+
+pub fn pack_bits(bools: &[bool]) -> u8 {
+    bools.iter().rev().enumerate().fold(0, |acc, (i, &b)| acc | ((b as u8) << i))
 }
 
 pub(crate) use byte_register;

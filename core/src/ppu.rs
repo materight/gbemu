@@ -1,5 +1,6 @@
 use crate::cpu::{INT_STAT, INT_VBLANK};
 use crate::lcd::{LCDBuffer, LCD, LCDH, LCDW};
+use crate::utils::pack_bits;
 
 #[rustfmt::skip::macros(byte_register)]
 mod ppu_registers {
@@ -264,7 +265,7 @@ impl PPU {
                         self.scanline_bg_colors[x as usize] = px;
                         self.scanline_bg_pri[x as usize] = flags.bg_priority;
                         if self.cgb_mode {
-                            let cgbp = BGFlags::pack(&[flags.cgbp2, flags.cgbp1, flags.cgbp0]);
+                            let cgbp = pack_bits(&[flags.cgbp2, flags.cgbp1, flags.cgbp0]);
                             let palette = PPU::rpalette(&self.bgpalette, cgbp);
                             self.lcd.w_cgb(x as u8, self.ly, px, palette, false);
                         } else {
@@ -290,7 +291,7 @@ impl PPU {
                         self.scanline_bg_colors[x as usize] = px;
                         self.scanline_bg_pri[x as usize] = flags.bg_priority;
                         if self.cgb_mode {
-                            let cgbp = BGFlags::pack(&[flags.cgbp2, flags.cgbp1, flags.cgbp0]);
+                            let cgbp = pack_bits(&[flags.cgbp2, flags.cgbp1, flags.cgbp0]);
                             let palette = PPU::rpalette(&self.bgpalette, cgbp);
                             self.lcd.w_cgb(x as u8, self.ly, px, palette, true);
                         } else {
@@ -350,7 +351,7 @@ impl PPU {
                         }
                         // Draw
                         if self.cgb_mode {
-                            let cgbp = OBJFlags::pack(&[flags.cgbp2, flags.cgbp1, flags.cgbp0]);
+                            let cgbp = pack_bits(&[flags.cgbp2, flags.cgbp1, flags.cgbp0]);
                             let palette = PPU::rpalette(&self.obpalette, cgbp);
                             self.lcd.w_cgb(x as u8, self.ly, px, palette, true);
                         } else {

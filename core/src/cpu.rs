@@ -57,7 +57,7 @@ impl CPU {
         // Handle interrupts, if any
         opcycles += self.handle_interrupts();
 
-        // If thee CPU is in halted state, skip execution
+        // If the CPU is in halted state, skip execution
         if self.halt {
             opcycles += 1;
         } else {

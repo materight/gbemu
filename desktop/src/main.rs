@@ -8,7 +8,7 @@ use std::{fs, path::Path};
 
 use gb_core::{apu, lcd, GBEmu, Joypad};
 
-const AUDIO_SAMPLE_SIZE: usize = 1024;
+const AUDIO_SAMPLE_SIZE: usize = 2048;
 
 #[derive(Parser)]
 #[command(about = "A simple Gameboy emulator written in Rust")]

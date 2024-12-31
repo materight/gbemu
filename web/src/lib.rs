@@ -9,7 +9,7 @@ use gb_core::{apu, lcd, GBEmu, Joypad};
 const SCALE: usize = 4;
 const PALETTE_IDX_KEY: &str = "palette_idx";
 const AUDIO_SAMPLE_SIZE: usize = 2048;
-const AUDIO_MAX_DELAY: f64 = 0.1; // In seconds
+const AUDIO_MAX_DELAY: f64 = 0.1;
 
 struct EmuState {
     speed: u32,

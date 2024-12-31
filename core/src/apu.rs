@@ -75,10 +75,10 @@ impl ChGlobal {
     }
 
     fn update(&mut self, ch1: &ChPulse, ch2: &ChPulse, ch3: &ChWave, ch4: &ChNoise) {
-        self.ch1_on = ch1.enabled;
-        self.ch2_on = ch2.enabled;
-        self.ch3_on = ch3.enabled;
-        self.ch4_on = ch4.enabled;
+        self.ch1_on = ch1.enabled && ch1.dac_enabled;
+        self.ch2_on = ch2.enabled && ch2.dac_enabled;
+        self.ch3_on = ch3.enabled && ch3.dac_enabled;
+        self.ch4_on = ch4.enabled && ch4.dac_enabled;
     }
 
     fn mix(&self, ch1: f32, ch2: f32, ch3: f32, ch4: f32) -> (f32, f32) {

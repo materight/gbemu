@@ -124,11 +124,12 @@ struct ChPulse {
     enabled: bool,
     dac_enabled: bool,
     volume: u8,
-    swwep_enabled: bool,
-    sweep_counter: u8,
+    sweep_enabled: bool,
+    sweep_timer: u8,
     length_timer: u8,
     envelope_timer: u8,
     frequency_timer: u16,
+    frequency_shadow: u16,
     duty_wave_position: u8,
 }
 impl ChPulse {
@@ -180,10 +181,33 @@ impl ChPulse {
                     self.frequency_timer = (2048 - self.frequency) * 4;
                     self.envelope_timer = self.envelope_period;
                     self.volume = self.initial_volume;
+
+                    self.frequency_shadow = self.frequency;
+                    self.sweep_timer = self.sweep_period;
+                    if self.sweep_timer == 0 {
+                        self.sweep_timer = 8;
+                    }
+                    self.sweep_enabled = self.sweep_period > 0 || self.sweep_shift > 0;
+                    if self.sweep_shift > 0 {
+                        self.compute_sweep();
+                    }
                 }
             }
             _ => (),
         }
+    }
+
+    fn compute_sweep(&mut self) -> u16 {
+        let mut frequency_new = self.frequency_shadow >> self.sweep_shift;
+        if self.sweep_direction {
+            frequency_new = self.frequency_shadow - frequency_new;
+        } else {
+            frequency_new = self.frequency_shadow + frequency_new;
+        }
+        if frequency_new > 2047 {
+            self.enabled = false;
+        }
+        frequency_new
     }
 
     fn step(&mut self, ticks: u32) -> f32 {
@@ -219,7 +243,25 @@ impl ChPulse {
             }
 
             // Clock sweep timer at 128Hz
-            if ticks % (CPU_CLOCK / 128) == (CPU_CLOCK / 512) * 2 {}
+            if ticks % (CPU_CLOCK / 128) == (CPU_CLOCK / 512) * 2 {
+                if self.sweep_timer > 0 {
+                    self.sweep_timer -= 1;
+                }
+                if self.sweep_timer == 0 {
+                    self.sweep_timer = self.sweep_period;
+                    if self.sweep_timer == 0 {
+                        self.sweep_timer = 8;
+                    }
+                    if self.sweep_enabled && self.sweep_period > 0 {
+                        let frequency_new = self.compute_sweep();
+                        if frequency_new <= 2047 && self.sweep_shift > 0 {
+                            self.frequency = frequency_new;
+                            self.frequency_shadow = frequency_new;
+                            self.compute_sweep();
+                        }
+                    }
+                }
+            }
 
             // Move to the next duty step
             if self.frequency_timer > 0 {

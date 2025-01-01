@@ -44,7 +44,7 @@ fn main() {
     let controls_help = "\
         [A] A    [S]: B    [↑↓←→] D-PAD    \
         [ENTER] START    [BACKSPACE] SELECT    \
-        [TAB] SWITCH PALETTE    [P] 3D MODE    [R] REWIND    [ESC] EXIT\
+        [TAB] SWITCH PALETTE    [P] SHADER    [R] REWIND    [ESC] EXIT\
     ";
 
     // Start emulation loop
@@ -81,8 +81,8 @@ fn main() {
             // Draw frame to console buffer
             for x in 0..(lcd::LCDW as i32) {
                 for y in 0..(lcd::LCDH as i32 / 2) {
-                    let idxh = lcd::LCDBuffer::to_idx(x as u8, y as u8 * 2);
-                    let idxl = lcd::LCDBuffer::to_idx(x as u8, y as u8 * 2 + 1);
+                    let idxh = lcd::LCD::to_idx(x as u8, y as u8 * 2, 1, 0, 0);
+                    let idxl = lcd::LCD::to_idx(x as u8, y as u8 * 2 + 1, 1, 0, 0);
                     let [_, rh, gh, bh] = frame_buffer.frame[idxh].to_be_bytes();
                     let [_, rl, gl, bl] = frame_buffer.frame[idxl].to_be_bytes();
                     let (bg_color, fg_color) = if !args.ansi {
@@ -107,7 +107,7 @@ fn main() {
                 emulator.set_palette(emulator.current_palette() + 1)
             }
             if engine.is_key_pressed(console_engine::KeyCode::Char('p')) {
-                emulator.set_3d_mode(emulator.current_3d_mode() + 1)
+                emulator.set_shader(emulator.current_shader() + 1)
             }
 
             // Save RAM content to file every 60 frames (~1s)

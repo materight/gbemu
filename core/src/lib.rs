@@ -10,6 +10,7 @@ pub mod mbc;
 pub mod mmu;
 pub mod ppu;
 pub mod registers;
+pub mod shaders;
 pub mod utils;
 
 pub use gbemu::GBEmu;

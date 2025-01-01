@@ -14,7 +14,7 @@ const AUDIO_MAX_DELAY: f64 = 0.1;
 struct EmuState {
     speed: u32,
     switch_palette: Option<bool>,
-    switch_3d_mode: Option<bool>,
+    switch_shader: Option<bool>,
     rewind: bool,
     joypad: Joypad,
 }
@@ -38,8 +38,8 @@ fn key_status_change(state: &mut EmuState, event: &KeyboardEvent, is_down: bool)
         "Minus" if !is_down => state.speed = (state.speed / 2).clamp(1, 32),
         "Tab" if !is_down && !event.shift_key() => state.switch_palette = Some(true),
         "Tab" if !is_down && event.shift_key() => state.switch_palette = Some(false),
-        "KeyP" if !is_down && !event.shift_key() => state.switch_3d_mode = Some(true),
-        "KeyP" if !is_down && event.shift_key() => state.switch_3d_mode = Some(false),
+        "KeyP" if !is_down && !event.shift_key() => state.switch_shader = Some(true),
+        "KeyP" if !is_down && event.shift_key() => state.switch_shader = Some(false),
         "KeyR" => state.rewind = is_down,
         _ => (),
     };
@@ -54,7 +54,7 @@ pub fn start(rom: &[u8]) {
     let state = Rc::new(RefCell::new(EmuState {
         speed: 1,
         switch_palette: None,
-        switch_3d_mode: None,
+        switch_shader: None,
         rewind: false,
         joypad: Joypad::default(),
     }));
@@ -120,10 +120,10 @@ pub fn start(rom: &[u8]) {
                 local_storage.set_item(PALETTE_IDX_KEY, &new_palette_idx.to_string()).unwrap();
             }
 
-            // Update 3D mode
-            if let Some(switch) = state.switch_3d_mode.take() {
-                let new_3d_mode_idx = emulator.current_3d_mode() + if switch { 1 } else { -1 };
-                emulator.set_3d_mode(new_3d_mode_idx);
+            // Update shader mode
+            if let Some(switch) = state.switch_shader.take() {
+                let new_shader_idx = emulator.current_shader() + if switch { 1 } else { -1 };
+                emulator.set_shader(new_shader_idx);
             }
 
             // Play audio
@@ -175,7 +175,7 @@ pub fn start(rom: &[u8]) {
 
         // Resize image to match scaled canvas
         let mut buffer = vec![0; lcdw * lcdh * 4];
-        frame_buffer.unwrap().write_frame(&mut buffer, SCALE);
+        frame_buffer.unwrap().draw_frame(&mut buffer, SCALE);
 
         // Convert to ImageData and push to canvas
         let image_data = ImageData::new_with_u8_clamped_array_and_sh(Clamped(&buffer), lcdw as u32, lcdh as u32).unwrap();

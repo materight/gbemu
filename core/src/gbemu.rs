@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use crate::cpu::CPU;
 use crate::debug;
 use crate::joypad::Joypad;
-use crate::lcd::LCDBuffer;
+use crate::lcd::LCD;
 
 const REWIND_FREQ: usize = 2;
 const REWIND_MAX_LEN: usize = 20; // In seconds
@@ -27,7 +27,7 @@ impl GBEmu {
         }
     }
 
-    pub fn step(&mut self, joypad: &Joypad) -> Option<&LCDBuffer> {
+    pub fn step(&mut self, joypad: &Joypad) -> Option<&LCD> {
         // Save state once every frame
         if self.frame_count % REWIND_FREQ == 0 && self.last_state_frame != self.frame_count {
             self.states.push_back(self.cpu.clone());
@@ -61,11 +61,11 @@ impl GBEmu {
         self.states.len() > 0
     }
 
-    pub fn rewind(&mut self) -> Option<&LCDBuffer> {
+    pub fn rewind(&mut self) -> Option<&LCD> {
         if let Some(last_state) = self.states.pop_back() {
             self.cpu = last_state;
             self.cpu.mmu.ppu.lcd.w_rewind_symbol();
-            Some(&self.cpu.mmu.ppu.lcd.buffer)
+            Some(&self.cpu.mmu.ppu.lcd)
         } else {
             None
         }
@@ -83,12 +83,12 @@ impl GBEmu {
         self.cpu.mmu.ppu.lcd.set_palette(palette_idx);
     }
 
-    pub fn current_3d_mode(&self) -> i16 {
-        self.cpu.mmu.ppu.lcd.mode_3d_idx
+    pub fn current_shader(&self) -> i16 {
+        self.cpu.mmu.ppu.lcd.shader_idx
     }
 
-    pub fn set_3d_mode(&mut self, mode_idx: i16) {
-        self.cpu.mmu.ppu.lcd.set_3d_mode(mode_idx);
+    pub fn set_shader(&mut self, shader_idx: i16) {
+        self.cpu.mmu.ppu.lcd.set_shader(shader_idx);
     }
 
     pub fn rom_title(&self) -> String {

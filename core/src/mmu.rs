@@ -1,7 +1,7 @@
 use crate::apu::APU;
 use crate::clock::Clock;
 use crate::joypad::Joypad;
-use crate::lcd::LCDBuffer;
+use crate::lcd::LCD;
 use crate::mbc::MBC;
 use crate::ppu::{PPUMode, PPU};
 
@@ -190,7 +190,7 @@ impl MMU {
         self.joypad = joypad.clone();
     }
 
-    pub fn step(&mut self, mut elapsed_ticks: u16) -> Option<&LCDBuffer> {
+    pub fn step(&mut self, mut elapsed_ticks: u16) -> Option<&LCD> {
         // Perform HDMA/GDMA transfer if needed
         elapsed_ticks += self.step_vdma();
 

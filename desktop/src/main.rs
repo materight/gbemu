@@ -131,7 +131,7 @@ fn main() {
             if frame_count % speed == 0 {
                 // Write frame to buffer
                 texture
-                    .with_lock(None, |buffer: &mut [u8], _| frame_buffer.write_frame(buffer, args.scale as usize))
+                    .with_lock(None, |buffer: &mut [u8], _| frame_buffer.draw_frame(buffer, args.scale as usize))
                     .unwrap();
                 canvas.copy(&texture, None, None).unwrap();
                 canvas.present();
@@ -156,8 +156,8 @@ fn main() {
                         Event::KeyUp { keycode: Some(Keycode::Minus), .. } if speed > 1 => speed /= 2,
                         Event::KeyUp { keycode: Some(Keycode::Tab), keymod: Mod::NOMOD, .. } => emulator.set_palette(emulator.current_palette() + 1),
                         Event::KeyUp { keycode: Some(Keycode::Tab), keymod: Mod::LSHIFTMOD, .. } => emulator.set_palette(emulator.current_palette() - 1),
-                        Event::KeyUp { keycode: Some(Keycode::P), keymod: Mod::NOMOD, .. } => emulator.set_3d_mode(emulator.current_3d_mode() + 1),
-                        Event::KeyUp { keycode: Some(Keycode::P), keymod: Mod::LSHIFTMOD, .. } => emulator.set_3d_mode(emulator.current_3d_mode() - 1),
+                        Event::KeyUp { keycode: Some(Keycode::P), keymod: Mod::NOMOD, .. } => emulator.set_shader(emulator.current_shader() + 1),
+                        Event::KeyUp { keycode: Some(Keycode::P), keymod: Mod::LSHIFTMOD, .. } => emulator.set_shader(emulator.current_shader() - 1),
                         // Joypad
                         Event::KeyDown { keycode: Some(Keycode::A), repeat: false, .. } => joypad.a = true,
                         Event::KeyUp { keycode: Some(Keycode::A), repeat: false, .. } => joypad.a = false,

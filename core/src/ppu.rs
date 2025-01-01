@@ -1,5 +1,5 @@
 use crate::cpu::{INT_STAT, INT_VBLANK};
-use crate::lcd::{LCDBuffer, LCD, LCDH, LCDW};
+use crate::lcd::{LCD, LCDH, LCDW};
 use crate::utils::pack_bits;
 
 #[rustfmt::skip::macros(byte_register)]
@@ -232,7 +232,7 @@ impl PPU {
         }
     }
 
-    pub fn step(&mut self, elapsed_ticks: u16) -> (Option<&LCDBuffer>, u8) {
+    pub fn step(&mut self, elapsed_ticks: u16) -> (Option<&LCD>, u8) {
         // Wait until the LCD is enabled to start PPU and reset PPU status.
         if !self.lcdc.lcd_enable {
             self.set_ly(0);
@@ -370,8 +370,7 @@ impl PPU {
         // Return frame to be drawn when the last scanline has been reached
         let frame = if self.ly >= LY_MAX {
             interrupts |= self.set_ly(0);
-            self.lcd.postprocess();
-            Some(&self.lcd.buffer)
+            Some(&self.lcd)
         } else {
             None
         };

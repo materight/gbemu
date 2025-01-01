@@ -8,6 +8,7 @@ use gb_core::{apu, lcd, GBEmu, Joypad};
 
 const SCALE: usize = 4;
 const PALETTE_IDX_KEY: &str = "palette_idx";
+const SHADER_IDX_KEY: &str = "shader_idx";
 const AUDIO_SAMPLE_SIZE: usize = 2048;
 const AUDIO_MAX_DELAY: f64 = 0.1;
 
@@ -107,6 +108,12 @@ pub fn start(rom: &[u8]) {
         None => (),
     }
 
+    // Restore last used shader
+    match local_storage.get_item(SHADER_IDX_KEY).unwrap() {
+        Some(shader_idx) => emulator.set_shader(shader_idx.parse().unwrap()),
+        None => (),
+    }
+
     let f = Rc::new(RefCell::new(None));
     let g = f.clone();
     let mut frame_count = 0;
@@ -124,6 +131,7 @@ pub fn start(rom: &[u8]) {
             if let Some(switch) = state.switch_shader.take() {
                 let new_shader_idx = emulator.current_shader() + if switch { 1 } else { -1 };
                 emulator.set_shader(new_shader_idx);
+                local_storage.set_item(SHADER_IDX_KEY, &new_shader_idx.to_string()).unwrap();
             }
 
             // Play audio

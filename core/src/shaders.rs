@@ -85,36 +85,46 @@ pub fn lcd(buffer: &LCD, out: &mut [u8], scale: usize, dmg_bg_palette: Option<u3
             for dx in 0..scale {
                 for dy in 0..scale {
                     let idx = LCD::to_idx(x as u8, y as u8, scale, dx, dy);
-                    out[idx * 4..idx * 4 + 4].copy_from_slice(&[r, g, b, 0xFF]);
-                    if scale >= 2 && (dx == 0 || dy == 0) {
-                        // Draw light grid
-                        out[idx * 4..idx * 4 + 4].copy_from_slice(&[
-                            r.saturating_add(0x0F),
-                            g.saturating_add(0x0F),
-                            b.saturating_add(0x0F),
-                            0xFF,
-                        ]);
-                    } else if dmg_bg_palette.is_some() && px == dmg_bg_palette.unwrap() && x > 0 && y > 0 {
-                        // Draw drop shadow if in DMG mode and if pixel if background and is covered by foreground
-                        let idx_top = LCD::to_idx(x as u8 - 1, y as u8, 1, 0, 0);
-                        let idx_left = LCD::to_idx(x as u8, y as u8 - 1, 1, 0, 0);
-                        let idx_top_left = LCD::to_idx(x as u8 - 1, y as u8 - 1, 1, 0, 0);
-                        if buffer.frame[idx_top] != dmg_bg_palette.unwrap()
-                            || buffer.frame[idx_left] != dmg_bg_palette.unwrap()
-                            || buffer.frame[idx_top_left] != dmg_bg_palette.unwrap()
+                    if let Some(dmg_bg_palette) = dmg_bg_palette {
+                        // DMG mode
+                        if px == dmg_bg_palette
+                            && x < LCDW - 1
+                            && y > 0
+                            && buffer.frame[LCD::to_idx(x as u8 + 1, y as u8 - 1, 1, 0, 0)] != dmg_bg_palette
                         {
+                            // Draw drop shadow if pixel is background and is covered by foreground
                             out[idx * 4..idx * 4 + 4].copy_from_slice(&[
                                 r.saturating_sub(0x08),
                                 g.saturating_sub(0x08),
                                 b.saturating_sub(0x08),
                                 0xFF,
                             ]);
+                        } else if px != dmg_bg_palette && scale >= 2 && (dx == 0 || dy == 0) {
+                            // Draw light grid on non-background pixels
+                            out[idx * 4..idx * 4 + 4].copy_from_slice(&[
+                                r.saturating_add(0x0F),
+                                g.saturating_add(0x0F),
+                                b.saturating_add(0x0F),
+                                0xFF,
+                            ]);
                         } else {
+                            // Draw normal pixel
                             out[idx * 4..idx * 4 + 4].copy_from_slice(&[r, g, b, 0xFF]);
                         }
                     } else {
-                        // Draw normal pixel
-                        out[idx * 4..idx * 4 + 4].copy_from_slice(&[r, g, b, 0xFF]);
+                        // GBC mode
+                        if scale >= 2 && (dx == 0 || dy == 0) {
+                            // Draw grid for colored LCD
+                            out[idx * 4..idx * 4 + 4].copy_from_slice(&[
+                                r.saturating_sub(r / 2),
+                                g.saturating_sub(g / 2),
+                                b.saturating_sub(b / 2),
+                                0xFF,
+                            ]);
+                        } else {
+                            // Draw normal pixel
+                            out[idx * 4..idx * 4 + 4].copy_from_slice(&[r, g, b, 0xFF]);
+                        }
                     }
                 }
             }
@@ -125,10 +135,10 @@ pub fn lcd(buffer: &LCD, out: &mut [u8], scale: usize, dmg_bg_palette: Option<u3
 pub fn crt(buffer: &LCD, out: &mut [u8], scale: usize) {
     for x in 0..LCDW {
         for y in 0..LCDH {
+            let idx = LCD::to_idx(x as u8, y as u8, 1, 0, 0);
+            let [_, r, g, b] = buffer.frame[idx].to_be_bytes();
             for dx in 0..scale {
                 for dy in 0..scale {
-                    let idx = LCD::to_idx(x as u8, y as u8, 1, 0, 0);
-                    let [_, r, g, b] = buffer.frame[idx].to_be_bytes();
                     let idx = LCD::to_idx(x as u8, y as u8, scale, dx, dy);
                     if scale >= 2 && dy == scale - 1 {
                         // Draw scanlines

@@ -242,12 +242,12 @@ export function start(rom) {
     wasm.start(ptr0, len0);
 }
 
-function __wbg_adapter_20(arg0, arg1, arg2) {
-    wasm.closure33_externref_shim(arg0, arg1, arg2);
+function __wbg_adapter_20(arg0, arg1) {
+    wasm._dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h1cf69a206556fd4e(arg0, arg1);
 }
 
-function __wbg_adapter_23(arg0, arg1) {
-    wasm._dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h5ae2715a1af6b927(arg0, arg1);
+function __wbg_adapter_23(arg0, arg1, arg2) {
+    wasm.closure37_externref_shim(arg0, arg1, arg2);
 }
 
 async function __wbg_load(module, imports) {

@@ -58,7 +58,7 @@ impl GBEmu {
     }
 
     pub fn can_rewind(&self) -> bool {
-        self.states.len() > 0
+        !self.states.is_empty()
     }
 
     pub fn rewind(&mut self) -> Option<&LCD> {

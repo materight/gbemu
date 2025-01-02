@@ -1,13 +1,13 @@
 use crate::lcd::{LCD, LCDH, LCDW};
 
 pub fn normal(buffer: &LCD, out: &mut [u8], scale: usize) {
-    for x in 0..LCDW {
-        for y in 0..LCDH {
-            let idx = LCD::to_idx(x as u8, y as u8, 1, 0, 0);
+    for x in 0..(LCDW as u8) {
+        for y in 0..(LCDH as u8) {
+            let idx = LCD::to_idx(x, y, 1, 0, 0);
             let [_, r, g, b] = buffer.frame[idx].to_be_bytes();
             for dx in 0..scale {
                 for dy in 0..scale {
-                    let idx = LCD::to_idx(x as u8, y as u8, scale, dx, dy);
+                    let idx = LCD::to_idx(x, y, scale, dx, dy);
                     out[idx * 4..idx * 4 + 4].copy_from_slice(&[r, g, b, 0xFF]);
                 }
             }
@@ -46,7 +46,7 @@ pub fn anaglyph_3d(buffer: &LCD, out: &mut [u8], scale: usize, offset_background
     for xr in 0..(LCDW as u8) {
         for y in 0..(LCDH as u8) {
             // Retrieve right pixel from original frame
-            let idxr: usize = LCD::to_idx(xr as u8, y as u8, 1, 0, 0);
+            let idxr: usize = LCD::to_idx(xr, y, 1, 0, 0);
             let pxr = if buffer.foreground[idxr] != 0 {
                 buffer.foreground[idxr]
             } else {
@@ -55,11 +55,11 @@ pub fn anaglyph_3d(buffer: &LCD, out: &mut [u8], scale: usize, offset_background
             let [_, _, gr, br] = pxr.to_be_bytes();
             // Retrieve left pixel with a different displacement for foreground and background
             let (xl_bg, xl_fg) = (xr + offset_background, xr + offset_foreground);
-            let idxl_fg = LCD::to_idx(xl_fg as u8, y as u8, 1, 0, 0);
+            let idxl_fg = LCD::to_idx(xl_fg, y, 1, 0, 0);
             let pxl = if xl_fg < LCDW as u8 && buffer.foreground[idxl_fg] != 0 {
                 buffer.foreground[idxl_fg]
             } else if xl_bg < LCDW as u8 {
-                let idxl_bg = LCD::to_idx(xl_bg as u8, y as u8, 1, 0, 0);
+                let idxl_bg = LCD::to_idx(xl_bg, y, 1, 0, 0);
                 buffer.background[idxl_bg]
             } else {
                 0
@@ -68,7 +68,7 @@ pub fn anaglyph_3d(buffer: &LCD, out: &mut [u8], scale: usize, offset_background
             // Source: https://www.3dtv.at/knowhow/anaglyphcomparison_en.aspx
             for dx in 0..scale {
                 for dy in 0..scale {
-                    let idx = LCD::to_idx(xr as u8, y as u8, scale, dx, dy);
+                    let idx = LCD::to_idx(xr, y, scale, dx, dy);
                     out[idx * 4..idx * 4 + 4].copy_from_slice(&[rl, gr, br, 0xFF]);
                 }
             }
@@ -77,20 +77,20 @@ pub fn anaglyph_3d(buffer: &LCD, out: &mut [u8], scale: usize, offset_background
 }
 
 pub fn lcd(buffer: &LCD, out: &mut [u8], scale: usize, dmg_bg_palette: Option<u32>) {
-    for x in 0..LCDW {
-        for y in 0..LCDH {
-            let idx = LCD::to_idx(x as u8, y as u8, 1, 0, 0);
+    for x in 0..(LCDW as u8) {
+        for y in 0..(LCDH as u8) {
+            let idx = LCD::to_idx(x, y, 1, 0, 0);
             let px = buffer.frame[idx];
             let [_, r, g, b] = px.to_be_bytes();
             for dx in 0..scale {
                 for dy in 0..scale {
-                    let idx = LCD::to_idx(x as u8, y as u8, scale, dx, dy);
+                    let idx = LCD::to_idx(x, y, scale, dx, dy);
                     if let Some(dmg_bg_palette) = dmg_bg_palette {
                         // DMG mode
                         if px == dmg_bg_palette
-                            && x < LCDW - 1
+                            && x < LCDW as u8 - 1
                             && y > 0
-                            && buffer.frame[LCD::to_idx(x as u8 + 1, y as u8 - 1, 1, 0, 0)] != dmg_bg_palette
+                            && buffer.frame[LCD::to_idx(x + 1, y - 1, 1, 0, 0)] != dmg_bg_palette
                         {
                             // Draw drop shadow if pixel is background and is covered by foreground
                             out[idx * 4..idx * 4 + 4].copy_from_slice(&[
@@ -133,13 +133,13 @@ pub fn lcd(buffer: &LCD, out: &mut [u8], scale: usize, dmg_bg_palette: Option<u3
 }
 
 pub fn crt(buffer: &LCD, out: &mut [u8], scale: usize) {
-    for x in 0..LCDW {
-        for y in 0..LCDH {
-            let idx = LCD::to_idx(x as u8, y as u8, 1, 0, 0);
+    for x in 0..(LCDW as u8) {
+        for y in 0..(LCDH as u8) {
+            let idx = LCD::to_idx(x, y, 1, 0, 0);
             let [_, r, g, b] = buffer.frame[idx].to_be_bytes();
             for dx in 0..scale {
                 for dy in 0..scale {
-                    let idx = LCD::to_idx(x as u8, y as u8, scale, dx, dy);
+                    let idx = LCD::to_idx(x, y, scale, dx, dy);
                     if scale >= 2 && dy == scale - 1 {
                         // Draw scanlines
                         out[idx * 4..idx * 4 + 4].copy_from_slice(&[r / 3, g / 3, b / 3, 0xFF]);

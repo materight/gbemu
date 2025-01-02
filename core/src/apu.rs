@@ -213,7 +213,7 @@ impl ChPulse {
     fn step(&mut self, ticks: u32) -> f32 {
         if self.enabled && self.dac_enabled {
             // Clock length timer at 256Hz
-            if ticks % (CPU_CLOCK / 265) == 0 {
+            if ticks % (CPU_CLOCK / 256) == 0 {
                 if self.length_enabled && self.length_timer > 0 {
                     self.length_timer -= 1;
                     if self.length_timer == 0 {
@@ -353,7 +353,7 @@ impl ChWave {
     fn step(&mut self, ticks: u32) -> f32 {
         if self.enabled && self.dac_enabled {
             // Clock length timer at 256Hz
-            if ticks % (CPU_CLOCK / 265) == 0 {
+            if ticks % (CPU_CLOCK / 256) == 0 {
                 if self.length_enabled && self.length_timer > 0 {
                     self.length_timer -= 1;
                     if self.length_timer == 0 {
@@ -374,7 +374,7 @@ impl ChWave {
             // Get sample from high or low nibble based on position
             let mut sample = self.wave_ram[self.wave_position as usize / 2];
             if self.wave_position % 2 == 0 {
-                sample = sample & 0xF0 >> 4
+                sample = (sample & 0xF0) >> 4
             } else {
                 sample = sample & 0x0F
             };
@@ -383,7 +383,7 @@ impl ChWave {
             if self.volume == 0 {
                 sample = 0;
             } else {
-                sample = sample >> (self.volume - 1);
+                sample >>= self.volume - 1;
             }
 
             // Normalize sample from [0, 15] to [-1.0, 1.0]
@@ -473,7 +473,7 @@ impl ChNoise {
     fn step(&mut self, ticks: u32) -> f32 {
         if self.enabled && self.dac_enabled {
             // Clock length timer at 256Hz
-            if ticks % (CPU_CLOCK / 265) == 0 {
+            if ticks % (CPU_CLOCK / 256) == 0 {
                 if self.length_enabled && self.length_timer > 0 {
                     self.length_timer -= 1;
                     if self.length_timer == 0 {
@@ -605,7 +605,7 @@ impl APU {
             self.sample_left_sum += sample_left;
             self.sample_right_sum += sample_right;
             self.sample_count += 1;
-            if self.sample_count >= SAMPLE_PERIOD as u16 {
+            if self.sample_count >= SAMPLE_PERIOD {
                 self.buffer.push(self.sample_left_sum / self.sample_count as f32);
                 self.buffer.push(self.sample_right_sum / self.sample_count as f32);
                 self.sample_left_sum = 0.0;

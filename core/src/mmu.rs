@@ -136,7 +136,7 @@ impl MMU {
 
     fn wvdma(&mut self, val: u8) {
         let mode = val & 0x80 != 0;
-        if self.hdma_mode == None {
+        if self.hdma_mode.is_none() {
             // Start VDMA
             self.hdma_mode = Some(mode);
             self.hdma_len = val & 0x7F;
@@ -177,7 +177,7 @@ impl MMU {
             }
         } else if self.hdma_mode == Some(false) {
             // GDMA: immediate transfer
-            while self.hdma_mode != None {
+            while self.hdma_mode.is_some() {
                 self.step_hdma();
             }
             0

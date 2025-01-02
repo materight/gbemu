@@ -27,7 +27,7 @@ impl LCD {
     }
 
     pub fn to_idx(x: u8, y: u8, scale: usize, dx: usize, dy: usize) -> usize {
-        return (x as usize * scale + dx) + (y as usize * scale + dy) * LCDW * scale;
+        (x as usize * scale + dx) + (y as usize * scale + dy) * LCDW * scale
     }
 
     pub fn set_palette(&mut self, index: i16) {

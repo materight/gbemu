@@ -165,14 +165,14 @@ impl PPU {
         let tile_addr = if self.lcdc.tile_mode || is_obj {
             0x8000 + (tile_nr as u16) * 16
         } else {
-            (0x9000 as i32 + (tile_nr as i8 as i32) * 16) as u16
+            (0x9000i32 + (tile_nr as i8 as i32) * 16) as u16
         };
         let row_addr = PPU::vram_addr(tile_addr + row_idx as u16 * 2, vbank);
         let (row_l, row_h) = (self.vram[row_addr] as u16, self.vram[row_addr + 1] as u16);
         let mut row_data = 0;
         for i in 0..8 {
-            row_data |= ((row_l >> i) & 0x01) << i * 2;
-            row_data |= ((row_h >> i) & 0x01) << i * 2 + 1;
+            row_data |= ((row_l >> i) & 0x01) << (i * 2);
+            row_data |= ((row_h >> i) & 0x01) << (i * 2 + 1);
         }
         row_data
     }

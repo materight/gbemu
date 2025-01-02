@@ -105,7 +105,7 @@ fn bank_addr(addr: u16, bank_nr: u16, base: u16, size: u16) -> usize {
 }
 
 fn mask_bank_nr(bank_nr: u16, size: usize) -> u16 {
-    bank_nr & (size - 1 >> 14) as u16
+    bank_nr & ((size - 1) >> 14) as u16
 }
 
 fn new_mbc(mbc_type: u8) -> Box<dyn MBCType> {

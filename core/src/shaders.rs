@@ -116,9 +116,9 @@ pub fn lcd(buffer: &LCD, out: &mut [u8], scale: usize, dmg_bg_palette: Option<u3
                         if scale >= 2 && (dx == 0 || dy == 0) {
                             // Draw grid for colored LCD
                             out[idx * 4..idx * 4 + 4].copy_from_slice(&[
-                                r.saturating_sub(r / 2),
-                                g.saturating_sub(g / 2),
-                                b.saturating_sub(b / 2),
+                                r.saturating_sub(r / 3),
+                                g.saturating_sub(g / 3),
+                                b.saturating_sub(b / 3),
                                 0xFF,
                             ]);
                         } else {

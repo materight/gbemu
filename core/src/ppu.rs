@@ -214,8 +214,8 @@ impl PPU {
     fn update_mode(&mut self) -> (u8, Option<PPUMode>) {
         let current_mode: PPUMode = match self.scanline_ticks {
             _ if self.ly >= LCDH as u8 => PPUMode::VBLANK,
-            0..=80 => PPUMode::OAM,
-            81..=370 => PPUMode::DRAW,
+            0..=79 => PPUMode::OAM,
+            80..=253 => PPUMode::DRAW,
             _ => PPUMode::HBLANK,
         };
         if self.mode() != current_mode {

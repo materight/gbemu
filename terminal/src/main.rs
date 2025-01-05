@@ -44,7 +44,7 @@ fn main() {
     let controls_help = "\
         [A] A    [S]: B    [↑↓←→] D-PAD    \
         [ENTER] START    [BACKSPACE] SELECT    \
-        [TAB] SWITCH PALETTE    [P] SHADER    [R] REWIND    [ESC] EXIT\
+        [TAB] SWITCH PALETTE    [R] REWIND    [ESC] EXIT\
     ";
 
     // Start emulation loop
@@ -79,10 +79,10 @@ fn main() {
             frame_count += 1;
 
             // Draw frame to console buffer
-            for x in 0..(lcd::LCDW as i32) {
-                for y in 0..(lcd::LCDH as i32 / 2) {
-                    let idxh = lcd::LCD::to_idx(x as u8, y as u8 * 2, 1, 0, 0);
-                    let idxl = lcd::LCD::to_idx(x as u8, y as u8 * 2 + 1, 1, 0, 0);
+            for x in 0..lcd::LCDW {
+                for y in 0..lcd::LCDH / 2 {
+                    let idxh = lcd::LCD::to_idx(x, y * 2, 1, 0, 0);
+                    let idxl = lcd::LCD::to_idx(x, y * 2 + 1, 1, 0, 0);
                     let [_, rh, gh, bh] = frame_buffer.frame[idxh].to_be_bytes();
                     let [_, rl, gl, bl] = frame_buffer.frame[idxl].to_be_bytes();
                     let (bg_color, fg_color) = if !args.ansi {
@@ -93,7 +93,7 @@ fn main() {
                             Color::AnsiValue(ansi256_from_rgb((rl, gl, bl))),
                         )
                     };
-                    engine.set_pxl(x, y, pixel::pxl_fbg('▄', fg_color, bg_color));
+                    engine.set_pxl(x as i32, y as i32, pixel::pxl_fbg('▄', fg_color, bg_color));
                 }
             }
             engine.print(0, lcd::LCDH as i32 / 2, controls_help);
@@ -105,9 +105,6 @@ fn main() {
             }
             if engine.is_key_pressed(console_engine::KeyCode::Tab) {
                 emulator.set_palette(emulator.current_palette() + 1)
-            }
-            if engine.is_key_pressed(console_engine::KeyCode::Char('p')) {
-                emulator.set_shader(emulator.current_shader() + 1)
             }
 
             // Save RAM content to file every 60 frames (~1s)

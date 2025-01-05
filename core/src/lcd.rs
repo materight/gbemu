@@ -26,8 +26,8 @@ impl LCD {
         }
     }
 
-    pub fn to_idx(x: u8, y: u8, scale: usize, dx: usize, dy: usize) -> usize {
-        (x as usize * scale + dx) + (y as usize * scale + dy) * LCDW * scale
+    pub fn to_idx(x: usize, y: usize, scale: usize, dx: usize, dy: usize) -> usize {
+        (x * scale + dx) + (y * scale + dy) * LCDW * scale
     }
 
     pub fn set_palette(&mut self, index: i16) {
@@ -68,7 +68,7 @@ impl LCD {
     }
 
     fn w(&mut self, x: u8, y: u8, color: u32, is_foreground: bool) {
-        let idx = LCD::to_idx(x, y, 1, 0, 0);
+        let idx = LCD::to_idx(x as usize, y as usize, 1, 0, 0);
         self.frame[idx] = color;
         if is_foreground {
             self.foreground[idx] = color;

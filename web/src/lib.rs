@@ -69,6 +69,7 @@ pub fn start(rom: &[u8]) {
     document.set_title(emulator.rom_title().as_str());
     canvas.set_width(lcdw as u32);
     canvas.set_height(lcdh as u32);
+    let mut image_data = vec![0; lcdw * lcdh * 4];
 
     // Init audio context
     let audio_ctx = AudioContext::new_with_context_options(
@@ -182,11 +183,10 @@ pub fn start(rom: &[u8]) {
         };
 
         // Resize image to match scaled canvas
-        let mut buffer = vec![0; lcdw * lcdh * 4];
-        frame_buffer.unwrap().draw_frame(&mut buffer, SCALE);
+        frame_buffer.unwrap().draw_frame(&mut image_data, SCALE);
 
         // Convert to ImageData and push to canvas
-        let image_data = ImageData::new_with_u8_clamped_array_and_sh(Clamped(&buffer), lcdw as u32, lcdh as u32).unwrap();
+        let image_data = ImageData::new_with_u8_clamped_array_and_sh(Clamped(&image_data), lcdw as u32, lcdh as u32).unwrap();
         context.put_image_data(&image_data, 0.0, 0.0).unwrap();
 
         // Save RAM content to file every 60 frames (~1s)

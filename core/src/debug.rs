@@ -60,12 +60,8 @@ pub fn draw_tilemap(ppu: &PPU) -> Vec<u8> {
                 let px = (tile_row_l >> (7 - i) & 1) | ((tile_row_h >> (7 - i) & 1) << 1);
                 let (x, y) = ((tile_nr % TILE_NCOLS) * 8 + i, (tile_nr / TILE_NCOLS) * 8 + row_idx);
                 let color = ppu.lcd.to_color_dmg(px, 0b11100100);
-                let [_, r, g, b] = color.to_be_bytes();
-                let idx = x + y * TILE_NCOLS * 8;
-                buffer[idx * 4 + 0] = r;
-                buffer[idx * 4 + 1] = g;
-                buffer[idx * 4 + 2] = b;
-                buffer[idx * 4 + 3] = 0xFF;
+                let idx = 4 * (x + y * TILE_NCOLS * 8);
+                buffer[idx..idx + 4].copy_from_slice(&color.to_be_bytes());
             }
         }
     }

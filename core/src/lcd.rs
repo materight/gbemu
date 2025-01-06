@@ -64,7 +64,7 @@ impl LCD {
         let g8 = (((g5 * 3 + b5) << 1) & 0xFF) as u8;
         let b8 = (((r5 * 3 + g5 * 2 + b5 * 11) >> 1) & 0xFF) as u8;
         // Merge into a single 32bit value
-        (0xFF << 24) | (r8 as u32) << 16 | (g8 as u32) << 8 | (b8 as u32)
+        (r8 as u32) << 24 | (g8 as u32) << 16 | (b8 as u32) << 8 | 0xFF
     }
 
     fn w(&mut self, x: u8, y: u8, color: u32, is_foreground: bool) {
@@ -95,7 +95,7 @@ impl LCD {
             for y in 0..(size * 2) - 1 {
                 let x_start = if y < size { size - y - 1 } else { y - size + 1 };
                 for x in x_start..size {
-                    self.w(px + x + (i * size), py + y, 0xffff0000, true);
+                    self.w(px + x + (i * size), py + y, 0xff0000ff, true);
                 }
             }
         }
@@ -104,7 +104,7 @@ impl LCD {
     pub fn draw_frame(&self, out: &mut [u8], scale: usize) {
         let dmg_bg_palette = palette::DMG_PALETTES[self.palette_idx as usize].1[0];
         match self.shader_idx {
-            0 => shaders::normal(&self, out, scale),
+            0 => shaders::normal(&self.frame, out, scale),
             1 => shaders::lcd(&self, out, scale, if self.cgb_mode { None } else { Some(dmg_bg_palette) }),
             2 => shaders::crt(&self, out, scale),
             3 => shaders::drop_shadow(&self, out, scale, 2, 2),
@@ -118,18 +118,18 @@ impl LCD {
 pub mod palette{
     // Color mappings for DMG
     pub const DMG_PALETTES: [(&str, [u32; 4]); 13] = [
-        ( "Default", [0xffc5dbd4, 0xff778e98, 0xff41485d, 0xff221e31]),
-        (     "DMG", [0xff818f38, 0xff647d43, 0xff566d3f, 0xff314a2d]),
-        (  "Autumn", [0xffdad3af, 0xffd58863, 0xffc23a73, 0xff2c1e74]),
-        (   "Earth", [0xfff5f29e, 0xffacb965, 0xffb87652, 0xff774346]),
-        (  "Hollow", [0xfffafbf6, 0xffc6b7be, 0xff565a75, 0xff0f0f1b]),
-        (    "Mist", [0xffc4f0c2, 0xff5ab9a8, 0xff1e606e, 0xff2d1b00]),
-        ("Coldfire", [0xfff6c6a8, 0xffd17c7c, 0xff5b768d, 0xff46425e]),
-        (    "Link", [0xffffffb5, 0xff7bc67b, 0xff6b8c42, 0xff5a3921]),
-        (    "Pink", [0xfff7bef7, 0xffe78686, 0xff7733e7, 0xff2c2c96]),
-        (    "Mint", [0xfffbffe0, 0xff95c798, 0xff856d52, 0xff40332f]),
-        ( "Nuclear", [0xffe2f3e4, 0xff94e344, 0xff46878f, 0xff332c50]),
-        (  "Rustic", [0xffa96868, 0xffedb4a1, 0xff764462, 0xff2c2137]),
-        (    "Wish", [0xff8be5ff, 0xff608fcf, 0xff7550e8, 0xff622e4c]),
+        ( "Default", [0xc5dbd4ff, 0x778e98ff, 0x41485dff, 0x221e31ff]),
+        (     "DMG", [0x818f38ff, 0x647d43ff, 0x566d3fff, 0x314a2dff]),
+        (  "Autumn", [0xdad3afff, 0xd58863ff, 0xc23a73ff, 0x2c1e74ff]),
+        (   "Earth", [0xf5f29eff, 0xacb965ff, 0xb87652ff, 0x774346ff]),
+        (  "Hollow", [0xfafbf6ff, 0xc6b7beff, 0x565a75ff, 0x0f0f1bff]),
+        (    "Mist", [0xc4f0c2ff, 0x5ab9a8ff, 0x1e606eff, 0x2d1b00ff]),
+        ("Coldfire", [0xf6c6a8ff, 0xd17c7cff, 0x5b768dff, 0x46425eff]),
+        (    "Link", [0xffffb5ff, 0x7bc67bff, 0x6b8c42ff, 0x5a3921ff]),
+        (    "Pink", [0xf7bef7ff, 0xe78686ff, 0x7733e7ff, 0x2c2c96ff]),
+        (    "Mint", [0xfbffe0ff, 0x95c798ff, 0x856d52ff, 0x40332fff]),
+        ( "Nuclear", [0xe2f3e4ff, 0x94e344ff, 0x46878fff, 0x332c50ff]),
+        (  "Rustic", [0xa96868ff, 0xedb4a1ff, 0x764462ff, 0x2c2137ff]),
+        (    "Wish", [0x8be5ffff, 0x608fcfff, 0x7550e8ff, 0x622e4cff]),
     ];
 }

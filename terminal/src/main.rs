@@ -83,8 +83,8 @@ fn main() {
                 for y in 0..lcd::LCDH / 2 {
                     let idxh = lcd::LCD::to_idx(x, y * 2, 1, 0, 0);
                     let idxl = lcd::LCD::to_idx(x, y * 2 + 1, 1, 0, 0);
-                    let [_, rh, gh, bh] = frame_buffer.frame[idxh].to_be_bytes();
-                    let [_, rl, gl, bl] = frame_buffer.frame[idxl].to_be_bytes();
+                    let [rh, gh, bh, _] = frame_buffer.frame[idxh].to_be_bytes();
+                    let [rl, gl, bl, _] = frame_buffer.frame[idxl].to_be_bytes();
                     let (bg_color, fg_color) = if !args.ansi {
                         (Color::Rgb { r: rh, g: gh, b: bh }, Color::Rgb { r: rl, g: gl, b: bl })
                     } else {

@@ -105,10 +105,10 @@ impl LCD {
         let dmg_bg_palette = palette::DMG_PALETTES[self.palette_idx as usize].1[0];
         match self.shader_idx {
             0 => shaders::normal(&self.frame, out, scale),
-            1 => shaders::lcd(&self, out, scale, if self.cgb_mode { None } else { Some(dmg_bg_palette) }),
-            2 => shaders::crt(&self, out, scale),
-            3 => shaders::drop_shadow(&self, out, scale, 2, 2),
-            4 => shaders::anaglyph_3d(&self, out, scale, 2, 6),
+            1 => shaders::lcd(&self.frame, out, scale, if self.cgb_mode { None } else { Some(dmg_bg_palette) }),
+            2 => shaders::crt(&self.frame, out, scale),
+            3 => shaders::drop_shadow(&self.background, &self.foreground, out, scale, 2, 2),
+            4 => shaders::anaglyph_3d(&self.background, &self.foreground, out, scale, 2, 6),
             val => panic!("shader {} not supported", val),
         }
     }

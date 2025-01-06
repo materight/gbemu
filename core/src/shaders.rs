@@ -15,19 +15,19 @@ pub fn normal(frame: &[u32], out: &mut [u8], scale: usize) {
     }
 }
 
-pub fn drop_shadow(buffer: &LCD, out: &mut [u8], scale: usize, offset_x: i16, offset_y: i16) {
+pub fn drop_shadow(background: &[u32], foreground: &[u32], out: &mut [u8], scale: usize, offset_x: i16, offset_y: i16) {
     for x in 0..(LCDW as i16) {
         for y in 0..(LCDH as i16) {
             let idx = LCD::to_idx(x as usize, y as usize, 1, 0, 0);
             let mut rgba: [u8; 4];
-            if buffer.foreground[idx] != 0 {
-                rgba = buffer.foreground[idx].to_be_bytes();
+            if foreground[idx] != 0 {
+                rgba = foreground[idx].to_be_bytes();
             } else {
-                rgba = buffer.background[idx].to_be_bytes();
+                rgba = background[idx].to_be_bytes();
                 let (shadow_ref_x, shadow_ref_y) = (x - offset_x, y - offset_y);
                 if 0 <= shadow_ref_x && shadow_ref_x < LCDW as i16 && 0 <= shadow_ref_y && shadow_ref_y < LCDH as i16 {
                     let shadow_ref_idx = LCD::to_idx(shadow_ref_x as usize, shadow_ref_y as usize, 1, 0, 0);
-                    if buffer.foreground[shadow_ref_idx] != 0 {
+                    if foreground[shadow_ref_idx] != 0 {
                         rgba.iter_mut().take(3).for_each(|c| *c = *c / 4 * 3);
                     }
                 }
@@ -42,24 +42,31 @@ pub fn drop_shadow(buffer: &LCD, out: &mut [u8], scale: usize, offset_x: i16, of
     }
 }
 
-pub fn anaglyph_3d(buffer: &LCD, out: &mut [u8], scale: usize, offset_background: usize, offset_foreground: usize) {
+pub fn anaglyph_3d(
+    background: &[u32],
+    foreground: &[u32],
+    out: &mut [u8],
+    scale: usize,
+    offset_background: usize,
+    offset_foreground: usize,
+) {
     for xr in 0..LCDW {
         for y in 0..LCDH {
             // Retrieve right pixel from original frame
             let idxr: usize = LCD::to_idx(xr, y, 1, 0, 0);
-            let pxr = if buffer.foreground[idxr] != 0 {
-                buffer.foreground[idxr]
+            let pxr = if foreground[idxr] != 0 {
+                foreground[idxr]
             } else {
-                buffer.background[idxr]
+                background[idxr]
             };
             // Retrieve left pixel with a different displacement for foreground and background
             let (xl_bg, xl_fg) = (xr + offset_background, xr + offset_foreground);
             let idxl_fg = LCD::to_idx(xl_fg, y, 1, 0, 0);
-            let pxl = if xl_fg < LCDW && buffer.foreground[idxl_fg] != 0 {
-                buffer.foreground[idxl_fg]
+            let pxl = if xl_fg < LCDW && foreground[idxl_fg] != 0 {
+                foreground[idxl_fg]
             } else if xl_bg < LCDW {
                 let idxl_bg = LCD::to_idx(xl_bg, y, 1, 0, 0);
-                buffer.background[idxl_bg]
+                background[idxl_bg]
             } else {
                 0
             };
@@ -76,11 +83,11 @@ pub fn anaglyph_3d(buffer: &LCD, out: &mut [u8], scale: usize, offset_background
     }
 }
 
-pub fn lcd(buffer: &LCD, out: &mut [u8], scale: usize, dmg_bg_palette: Option<u32>) {
+pub fn lcd(frame: &[u32], out: &mut [u8], scale: usize, dmg_bg_palette: Option<u32>) {
     for x in 0..LCDW {
         for y in 0..LCDH {
             let idx = LCD::to_idx(x, y, 1, 0, 0);
-            let px = buffer.frame[idx];
+            let px = frame[idx];
             let rgba = px.to_be_bytes();
             for dx in 0..scale {
                 for dy in 0..scale {
@@ -88,11 +95,7 @@ pub fn lcd(buffer: &LCD, out: &mut [u8], scale: usize, dmg_bg_palette: Option<u3
                     let mut rgba = rgba;
                     if let Some(dmg_bg_palette) = dmg_bg_palette {
                         // DMG mode
-                        if px == dmg_bg_palette
-                            && x < LCDW - 1
-                            && y > 0
-                            && buffer.frame[LCD::to_idx(x + 1, y - 1, 1, 0, 0)] != dmg_bg_palette
-                        {
+                        if px == dmg_bg_palette && x < LCDW - 1 && y > 0 && frame[LCD::to_idx(x + 1, y - 1, 1, 0, 0)] != dmg_bg_palette {
                             // Draw drop shadow if pixel is background and is covered by foreground
                             rgba.iter_mut().take(3).for_each(|c| *c = c.saturating_sub(0x08));
                         } else if px != dmg_bg_palette && scale >= 2 && (dx == 0 || dy == 0) {
@@ -113,11 +116,11 @@ pub fn lcd(buffer: &LCD, out: &mut [u8], scale: usize, dmg_bg_palette: Option<u3
     }
 }
 
-pub fn crt(buffer: &LCD, out: &mut [u8], scale: usize) {
+pub fn crt(frame: &[u32], out: &mut [u8], scale: usize) {
     for x in 0..LCDW {
         for y in 0..LCDH {
             let idx = LCD::to_idx(x, y, 1, 0, 0);
-            let rgba = buffer.frame[idx].to_be_bytes();
+            let rgba = frame[idx].to_be_bytes();
             for dx in 0..scale {
                 for dy in 0..scale {
                     let idx = 4 * LCD::to_idx(x, y, scale, dx, dy);

@@ -120,7 +120,7 @@ fn main() {
             emulator.rewind()
         } else {
             // Run emulator step, i.e. execute next opcode
-            emulator.step(&joypad)
+            emulator.step()
         };
 
         // Executed once per frame
@@ -138,8 +138,9 @@ fn main() {
 
                 // Write tiles
                 if args.tiles {
-                    let tilemap = emulator.draw_tilemap();
-                    tile_texture.update(None, &tilemap, debug::TILEW * 4).unwrap();
+                    tile_texture
+                        .with_lock(None, |buffer: &mut [u8], _| emulator.draw_tilemap(buffer))
+                        .unwrap();
                     tile_canvas.copy(&tile_texture, None, None).unwrap();
                     tile_canvas.present();
                 }
@@ -178,6 +179,7 @@ fn main() {
                         _ => {}
                     }
                 }
+                emulator.set_joypad(&joypad);
 
                 // Save RAM content to file every 60 frames (~1s)
                 if frame_count % 60 == 0 {

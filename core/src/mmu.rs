@@ -20,7 +20,7 @@ pub struct MMU {
 
     pub IF: u8,
     pub IE: u8,
-    joypad: Joypad,
+    pub joypad: Joypad,
     joyp: u8,
 
     pub double_speed: bool,
@@ -186,11 +186,7 @@ impl MMU {
         } // Disabled
     }
 
-    pub fn set_joypad(&mut self, joypad: &Joypad) {
-        self.joypad = joypad.clone();
-    }
-
-    pub fn step(&mut self, mut elapsed_ticks: u16) -> Option<&LCD> {
+    pub fn step(&mut self, lcd: &mut LCD, mut elapsed_ticks: u16) -> bool {
         // Perform HDMA/GDMA transfer if needed
         elapsed_ticks += self.step_vdma();
 
@@ -198,12 +194,12 @@ impl MMU {
         self.IF |= self.clock.step(elapsed_ticks * if self.double_speed { 2 } else { 1 });
 
         // Update PPU status
-        let (frame_buffer, ppu_interrupts) = self.ppu.step(elapsed_ticks);
+        let (frame_ready, ppu_interrupts) = self.ppu.step(lcd, elapsed_ticks);
         self.IF |= ppu_interrupts;
 
         // Update APU status
         self.apu.step(elapsed_ticks);
 
-        frame_buffer
+        frame_ready
     }
 }

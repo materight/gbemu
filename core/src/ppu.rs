@@ -32,7 +32,6 @@ impl PPUMode {
 
 #[derive(Clone)]
 pub struct PPU {
-    pub lcd: LCD,
     pub vram: [u8; VRAM_SIZE],
     oam: [u8; OAM_SIZE],
 
@@ -66,7 +65,6 @@ pub struct PPU {
 impl PPU {
     pub fn new(cgb_mode: bool) -> Self {
         Self {
-            lcd: LCD::new(),
             vram: [0; VRAM_SIZE],
             oam: [0; OAM_SIZE],
             lcdc: LCDControl::from(0),
@@ -232,13 +230,13 @@ impl PPU {
         }
     }
 
-    pub fn step(&mut self, elapsed_ticks: u16) -> (Option<&LCD>, u8) {
+    pub fn step(&mut self, lcd: &mut LCD, elapsed_ticks: u16) -> (bool, u8) {
         // Wait until the LCD is enabled to start PPU and reset PPU status.
         if !self.lcdc.lcd_enable {
             self.set_ly(0);
             self.scanline_ticks = 0;
             (self.lcdstat.ppu_mode_1, self.lcdstat.ppu_mode_0) = (PPUMode::HBLANK.0, PPUMode::HBLANK.1);
-            return (None, 0);
+            return (false, 0);
         }
         let mut interrupts: u8 = 0;
         // Set current mode and trigger interrupt if needed.
@@ -267,9 +265,9 @@ impl PPU {
                         if self.cgb_mode {
                             let cgbp = pack_bits(&[flags.cgbp2, flags.cgbp1, flags.cgbp0]);
                             let palette = PPU::rpalette(&self.bgpalette, cgbp);
-                            self.lcd.w_cgb(x as u8, self.ly, px, palette, false);
+                            lcd.w_cgb(x as u8, self.ly, px, palette, false);
                         } else {
-                            self.lcd.w_dmg(x as u8, self.ly, px, self.bgp, false);
+                            lcd.w_dmg(x as u8, self.ly, px, self.bgp, false);
                         }
                     }
                 }
@@ -293,9 +291,9 @@ impl PPU {
                         if self.cgb_mode {
                             let cgbp = pack_bits(&[flags.cgbp2, flags.cgbp1, flags.cgbp0]);
                             let palette = PPU::rpalette(&self.bgpalette, cgbp);
-                            self.lcd.w_cgb(x as u8, self.ly, px, palette, true);
+                            lcd.w_cgb(x as u8, self.ly, px, palette, true);
                         } else {
-                            self.lcd.w_dmg(x as u8, self.ly, px, self.bgp, true);
+                            lcd.w_dmg(x as u8, self.ly, px, self.bgp, true);
                         }
                     }
                 }
@@ -353,10 +351,9 @@ impl PPU {
                         if self.cgb_mode {
                             let cgbp = pack_bits(&[flags.cgbp2, flags.cgbp1, flags.cgbp0]);
                             let palette = PPU::rpalette(&self.obpalette, cgbp);
-                            self.lcd.w_cgb(x as u8, self.ly, px, palette, true);
+                            lcd.w_cgb(x as u8, self.ly, px, palette, true);
                         } else {
-                            self.lcd
-                                .w_dmg(x as u8, self.ly, px, if flags.obp { self.obp1 } else { self.obp0 }, true);
+                            lcd.w_dmg(x as u8, self.ly, px, if flags.obp { self.obp1 } else { self.obp0 }, true);
                         }
                     }
                 }
@@ -368,13 +365,13 @@ impl PPU {
         }
 
         // Return frame to be drawn when the last scanline has been reached
-        let frame = if self.ly >= LY_MAX {
+        let frame_ready = if self.ly >= LY_MAX {
             interrupts |= self.set_ly(0);
-            Some(&self.lcd)
+            true
         } else {
-            None
+            false
         };
 
-        (frame, interrupts)
+        (frame_ready, interrupts)
     }
 }

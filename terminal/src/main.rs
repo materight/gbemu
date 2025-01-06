@@ -48,28 +48,18 @@ fn main() {
     ";
 
     // Start emulation loop
+    let mut running = true;
+    let mut rewinding = false;
+    let mut joypad = Joypad::default();
     let mut frame_count: u64 = 0;
-    loop {
-        // Retrieve current pressed keys
-        let keys: Vec<Keycode> = device_state.get_keys();
-        let joypad = Joypad {
-            a: keys.contains(&Keycode::A),
-            b: keys.contains(&Keycode::S),
-            up: keys.contains(&Keycode::Up),
-            down: keys.contains(&Keycode::Down),
-            left: keys.contains(&Keycode::Left),
-            right: keys.contains(&Keycode::Right),
-            start: keys.contains(&Keycode::Enter),
-            select: keys.contains(&Keycode::Backspace),
-        };
-
+    while running {
         // Run emulator step, i.e. execute next opcode
-        let frame_buffer = if keys.contains(&Keycode::R) && emulator.can_rewind() {
+        let frame_buffer = if rewinding && emulator.can_rewind() {
             // Rewind to last state
             emulator.rewind()
         } else {
             // Run emulator step, i.e. execute next opcode
-            emulator.step(&joypad)
+            emulator.step()
         };
 
         // Executed once per frame
@@ -99,9 +89,22 @@ fn main() {
             engine.print(0, lcd::LCDH as i32 / 2, controls_help);
             engine.draw();
 
+            // Retrieve current pressed keys and update joypad
+            let keys: Vec<Keycode> = device_state.get_keys();
+            joypad.a = keys.contains(&Keycode::A);
+            joypad.b = keys.contains(&Keycode::S);
+            joypad.up = keys.contains(&Keycode::Up);
+            joypad.down = keys.contains(&Keycode::Down);
+            joypad.left = keys.contains(&Keycode::Left);
+            joypad.right = keys.contains(&Keycode::Right);
+            joypad.start = keys.contains(&Keycode::Enter);
+            joypad.select = keys.contains(&Keycode::Backspace);
+            emulator.set_joypad(&joypad);
+
             // Handle shortcuts
+            rewinding = keys.contains(&Keycode::R);
             if engine.is_key_pressed(console_engine::KeyCode::Esc) {
-                break;
+                running = false;
             }
             if engine.is_key_pressed(console_engine::KeyCode::Tab) {
                 emulator.set_palette(emulator.current_palette() + 1)

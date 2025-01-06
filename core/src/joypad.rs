@@ -24,4 +24,15 @@ impl Joypad {
             0x0F
         }
     }
+
+    pub fn reset(&mut self) {
+        self.a = false;
+        self.b = false;
+        self.up = false;
+        self.down = false;
+        self.left = false;
+        self.right = false;
+        self.start = false;
+        self.select = false;
+    }
 }

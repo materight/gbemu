@@ -169,7 +169,8 @@ pub fn start(rom: &[u8]) {
                 emulator.rewind()
             } else {
                 // Run emulator steps until a frame is available to be drawn
-                emulator.step(&state.joypad)
+                emulator.set_joypad(&state.joypad);
+                emulator.step()
             };
 
             // Return available frame

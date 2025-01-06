@@ -6,9 +6,9 @@ pub const LCD_BUFFER_SIZE: usize = LCDW * LCDH;
 
 #[derive(Clone)]
 pub struct LCD {
-    pub frame: Vec<u32>,
-    pub background: Vec<u32>,
-    pub foreground: Vec<u32>,
+    pub frame: [u32; LCD_BUFFER_SIZE],
+    pub background: [u32; LCD_BUFFER_SIZE],
+    pub foreground: [u32; LCD_BUFFER_SIZE],
 
     cgb_mode: bool,
     pub shader_idx: i16,
@@ -17,9 +17,9 @@ pub struct LCD {
 impl LCD {
     pub fn new() -> Self {
         Self {
-            frame: vec![0; LCD_BUFFER_SIZE],
-            background: vec![0; LCD_BUFFER_SIZE],
-            foreground: vec![0; LCD_BUFFER_SIZE],
+            frame: [0; LCD_BUFFER_SIZE],
+            background: [0; LCD_BUFFER_SIZE],
+            foreground: [0; LCD_BUFFER_SIZE],
             cgb_mode: false,
             shader_idx: 0,
             palette_idx: 0,
@@ -38,7 +38,7 @@ impl LCD {
         self.shader_idx = index.rem_euclid(5);
     }
 
-    pub fn to_color_dmg(&self, val: u8, palette: u8) -> u32 {
+    pub fn to_color_dmg(val: u8, palette: u8, palette_idx: usize) -> u32 {
         let color_idx = match val {
             0 => (palette & 0x03) >> 0,
             1 => (palette & 0x0C) >> 2,
@@ -46,10 +46,10 @@ impl LCD {
             3 => (palette & 0xC0) >> 6,
             _ => panic!("Color ID {} not supported", val),
         };
-        palette::DMG_PALETTES[self.palette_idx as usize].1[color_idx as usize]
+        palette::DMG_PALETTES[palette_idx].1[color_idx as usize]
     }
 
-    pub fn to_color_cgb(&self, val: u8, palette: &[u8]) -> u32 {
+    pub fn to_color_cgb(val: u8, palette: &[u8]) -> u32 {
         // Get 15bit color from palette
         let color15 = match val {
             0 => u16::from_le_bytes([palette[0], palette[1]]),
@@ -80,12 +80,12 @@ impl LCD {
 
     pub fn w_dmg(&mut self, x: u8, y: u8, val: u8, palette: u8, is_foreground: bool) {
         self.cgb_mode = false;
-        self.w(x, y, self.to_color_dmg(val, palette), is_foreground);
+        self.w(x, y, LCD::to_color_dmg(val, palette, self.palette_idx as usize), is_foreground);
     }
 
     pub fn w_cgb(&mut self, x: u8, y: u8, val: u8, palette: &[u8], is_foreground: bool) {
         self.cgb_mode = true;
-        self.w(x, y, self.to_color_cgb(val, palette), is_foreground);
+        self.w(x, y, LCD::to_color_cgb(val, palette), is_foreground);
     }
 
     pub fn w_rewind_symbol(&mut self) {
@@ -118,11 +118,11 @@ impl LCD {
 pub mod palette{
     // Color mappings for DMG
     pub const DMG_PALETTES: [(&str, [u32; 4]); 13] = [
-        ( "Default", [0xc5dbd4ff, 0x778e98ff, 0x41485dff, 0x221e31ff]),
+        ( "Default", [0xfafbf6ff, 0xc6b7beff, 0x565a75ff, 0x0f0f1bff]),
         (     "DMG", [0x818f38ff, 0x647d43ff, 0x566d3fff, 0x314a2dff]),
         (  "Autumn", [0xdad3afff, 0xd58863ff, 0xc23a73ff, 0x2c1e74ff]),
         (   "Earth", [0xf5f29eff, 0xacb965ff, 0xb87652ff, 0x774346ff]),
-        (  "Hollow", [0xfafbf6ff, 0xc6b7beff, 0x565a75ff, 0x0f0f1bff]),
+        (  "Hollow", [0xc5dbd4ff, 0x778e98ff, 0x41485dff, 0x221e31ff]),
         (    "Mist", [0xc4f0c2ff, 0x5ab9a8ff, 0x1e606eff, 0x2d1b00ff]),
         ("Coldfire", [0xf6c6a8ff, 0xd17c7cff, 0x5b768dff, 0x46425eff]),
         (    "Link", [0xffffb5ff, 0x7bc67bff, 0x6b8c42ff, 0x5a3921ff]),

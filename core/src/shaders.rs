@@ -1,21 +1,28 @@
-use crate::lcd::{LCD, LCDH, LCDW};
+use crate::lcd::{LCD, LCDH, LCDW, LCD_BUFFER_SIZE};
 
-pub fn normal(frame: &[u32], out: &mut [u8], scale: usize) {
-    for x in 0..LCDW {
-        for y in 0..LCDH {
-            let idx = LCD::to_idx(x, y, 1, 0, 0);
-            let rgba = frame[idx].to_be_bytes();
-            for dx in 0..scale {
-                for dy in 0..scale {
-                    let idx = 4 * LCD::to_idx(x, y, scale, dx, dy);
-                    out[idx..idx + 4].copy_from_slice(&rgba);
-                }
+pub fn normal(frame: &[u32; LCD_BUFFER_SIZE], out: &mut [u8], scale: usize) {
+    for (frame_row, out_block) in frame.chunks_exact(LCDW).zip(out.chunks_exact_mut(LCDW * scale * scale * 4)) {
+        // Horizontal scaling: copy src row on first out row
+        for (frame_px, out_px_block) in frame_row.iter().zip(out_block[..LCDW * scale * 4].chunks_exact_mut(4 * scale)) {
+            for out_px in out_px_block.chunks_exact_mut(4) {
+                out_px.copy_from_slice(&frame_px.to_be_bytes());
             }
+        }
+        // Verical scaling: copy first dst_row on other dst_rows
+        for out_y in 1..scale {
+            out_block.copy_within(..LCDW * scale * 4, out_y * LCDW * scale * 4);
         }
     }
 }
 
-pub fn drop_shadow(background: &[u32], foreground: &[u32], out: &mut [u8], scale: usize, offset_x: i16, offset_y: i16) {
+pub fn drop_shadow(
+    background: &[u32; LCD_BUFFER_SIZE],
+    foreground: &[u32; LCD_BUFFER_SIZE],
+    out: &mut [u8],
+    scale: usize,
+    offset_x: i16,
+    offset_y: i16,
+) {
     for x in 0..(LCDW as i16) {
         for y in 0..(LCDH as i16) {
             let idx = LCD::to_idx(x as usize, y as usize, 1, 0, 0);
@@ -43,8 +50,8 @@ pub fn drop_shadow(background: &[u32], foreground: &[u32], out: &mut [u8], scale
 }
 
 pub fn anaglyph_3d(
-    background: &[u32],
-    foreground: &[u32],
+    background: &[u32; LCD_BUFFER_SIZE],
+    foreground: &[u32; LCD_BUFFER_SIZE],
     out: &mut [u8],
     scale: usize,
     offset_background: usize,
@@ -83,7 +90,7 @@ pub fn anaglyph_3d(
     }
 }
 
-pub fn lcd(frame: &[u32], out: &mut [u8], scale: usize, dmg_bg_palette: Option<u32>) {
+pub fn lcd(frame: &[u32; LCD_BUFFER_SIZE], out: &mut [u8], scale: usize, dmg_bg_palette: Option<u32>) {
     for x in 0..LCDW {
         for y in 0..LCDH {
             let idx = LCD::to_idx(x, y, 1, 0, 0);
@@ -116,7 +123,7 @@ pub fn lcd(frame: &[u32], out: &mut [u8], scale: usize, dmg_bg_palette: Option<u
     }
 }
 
-pub fn crt(frame: &[u32], out: &mut [u8], scale: usize) {
+pub fn crt(frame: &[u32; LCD_BUFFER_SIZE], out: &mut [u8], scale: usize) {
     for x in 0..LCDW {
         for y in 0..LCDH {
             let idx = LCD::to_idx(x, y, 1, 0, 0);
